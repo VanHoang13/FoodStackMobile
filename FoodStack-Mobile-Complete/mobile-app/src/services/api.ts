@@ -132,37 +132,174 @@ export const publicApi = {
 
 // Order API
 export const orderApi = {
-  // Create session from QR
-  createSession: async (qrToken: string): Promise<ApiResponse<OrderSession>> => {
-    const response = await apiClient.post('/orders/session', { qrToken });
-    return response.data;
-  },
-
   // Create order
-  createOrder: async (sessionToken: string, items: OrderItem[], notes?: string): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.post('/orders', {
-      sessionToken,
-      items,
-      notes,
-    });
+  createOrder: async (orderData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/orders', orderData);
     return response.data;
   },
 
-  // Get order status
-  getOrder: async (orderId: string): Promise<ApiResponse<Order>> => {
+  // Get order details
+  getOrderDetails: async (orderId: string): Promise<ApiResponse<any>> => {
     const response = await apiClient.get(`/orders/${orderId}`);
     return response.data;
   },
 
+  // Update order status (for restaurant)
+  updateOrderStatus: async (orderId: string, status: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.patch(`/orders/${orderId}/status`, { status });
+    return response.data;
+  },
+
   // Get order history
-  getOrderHistory: async (): Promise<ApiResponse<Order[]>> => {
+  getOrderHistory: async (): Promise<ApiResponse<any[]>> => {
     const response = await apiClient.get('/orders/history');
     return response.data;
   },
 
-  // Update order status (for restaurant)
-  updateOrderStatus: async (orderId: string, status: string): Promise<ApiResponse<Order>> => {
-    const response = await apiClient.patch(`/orders/${orderId}/status`, { status });
+  // Get active orders by branch (for restaurant staff)
+  getActiveOrdersByBranch: async (branchId: string): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get(`/orders/branch/${branchId}/active`);
+    return response.data;
+  },
+
+  // Add items to existing order
+  addItemsToOrder: async (orderId: string, items: any[]): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post(`/orders/${orderId}/items`, { items });
+    return response.data;
+  },
+
+  // Remove item from order
+  removeItemFromOrder: async (orderId: string, orderItemId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.delete(`/orders/${orderId}/items/${orderItemId}`);
+    return response.data;
+  },
+
+  // Update order item quantity
+  updateOrderItem: async (orderId: string, orderItemId: string, quantity: number): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/orders/${orderId}/items/${orderItemId}`, { quantity });
+    return response.data;
+  },
+
+  // Cancel order
+  cancelOrder: async (orderId: string, reason?: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/orders/${orderId}/cancel`, { reason });
+    return response.data;
+  },
+};
+
+// Service Request API
+export const serviceRequestApi = {
+  // Create service request
+  createRequest: async (requestData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/service-requests', requestData);
+    return response.data;
+  },
+
+  // Get requests for table
+  getTableRequests: async (tableId: string, status?: string): Promise<ApiResponse<any[]>> => {
+    const params = status ? `?status=${status}` : '';
+    const response = await apiClient.get(`/service-requests/table/${tableId}${params}`);
+    return response.data;
+  },
+
+  // Get requests for branch (staff)
+  getBranchRequests: async (branchId: string, filters?: any): Promise<ApiResponse<any[]>> => {
+    const params = new URLSearchParams(filters).toString();
+    const response = await apiClient.get(`/service-requests/branch/${branchId}?${params}`);
+    return response.data;
+  },
+
+  // Update request status
+  updateRequestStatus: async (requestId: string, statusData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/service-requests/${requestId}/status`, statusData);
+    return response.data;
+  },
+
+  // Cancel request
+  cancelRequest: async (requestId: string, reason?: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.delete(`/service-requests/${requestId}`, { data: { reason } });
+    return response.data;
+  },
+
+  // Get statistics
+  getStats: async (branchId: string, filters?: any): Promise<ApiResponse<any>> => {
+    const params = new URLSearchParams(filters).toString();
+    const response = await apiClient.get(`/service-requests/stats/${branchId}?${params}`);
+    return response.data;
+  },
+};
+
+// Payment API
+export const paymentApi = {
+  // Create payment
+  createPayment: async (paymentData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/payments/create', paymentData);
+    return response.data;
+  },
+
+  // Get payment status
+  getPaymentStatus: async (orderId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get(`/payments/${orderId}`);
+    return response.data;
+  },
+
+  // Confirm cash payment (staff)
+  confirmCashPayment: async (paymentId: string, confirmData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post(`/payments/${paymentId}/confirm`, confirmData);
+    return response.data;
+  },
+
+  // Get pending cash payments (staff)
+  getPendingCashPayments: async (branchId: string): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get(`/payments/branch/${branchId}/pending`);
+    return response.data;
+  },
+};
+
+// Feedback API
+export const feedbackApi = {
+  // Submit feedback
+  submitFeedback: async (feedbackData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/feedback', feedbackData);
+    return response.data;
+  },
+
+  // Get feedback for order
+  getOrderFeedback: async (orderId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get(`/feedback/order/${orderId}`);
+    return response.data;
+  },
+
+  // Get restaurant feedback
+  getRestaurantFeedback: async (restaurantId: string, filters?: any): Promise<ApiResponse<any>> => {
+    const params = new URLSearchParams(filters).toString();
+    const response = await apiClient.get(`/feedback/restaurant/${restaurantId}?${params}`);
+    return response.data;
+  },
+
+  // Get branch feedback (staff)
+  getBranchFeedback: async (branchId: string, filters?: any): Promise<ApiResponse<any>> => {
+    const params = new URLSearchParams(filters).toString();
+    const response = await apiClient.get(`/feedback/branch/${branchId}?${params}`);
+    return response.data;
+  },
+
+  // Get feedback statistics
+  getFeedbackStats: async (restaurantId: string, filters?: any): Promise<ApiResponse<any>> => {
+    const params = new URLSearchParams(filters).toString();
+    const response = await apiClient.get(`/feedback/stats/${restaurantId}?${params}`);
+    return response.data;
+  },
+
+  // Add management response
+  addResponse: async (feedbackId: string, response: string): Promise<ApiResponse<any>> => {
+    const responseData = await apiClient.put(`/feedback/${feedbackId}/response`, { response });
+    return responseData.data;
+  },
+
+  // Update feedback status
+  updateStatus: async (feedbackId: string, status: string, reason?: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/feedback/${feedbackId}/status`, { status, reason });
     return response.data;
   },
 };
@@ -227,6 +364,80 @@ export const branchApi = {
   // Get branch tables
   getBranchTables: async (branchId: string): Promise<ApiResponse<any[]>> => {
     const response = await apiClient.get(`/branches/${branchId}/tables`);
+    return response.data;
+  },
+};
+
+// Menu Item API
+export const menuItemApi = {
+  // Create menu item
+  createMenuItem: async (menuItemData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/menu-items', menuItemData);
+    return response.data;
+  },
+
+  // Update menu item
+  updateMenuItem: async (menuItemId: string, menuItemData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/menu-items/${menuItemId}`, menuItemData);
+    return response.data;
+  },
+
+  // Delete menu item
+  deleteMenuItem: async (menuItemId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.delete(`/menu-items/${menuItemId}`);
+    return response.data;
+  },
+
+  // Upload menu item image
+  uploadMenuItemImage: async (menuItemId: string, imageFile: any): Promise<ApiResponse<any>> => {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    
+    const response = await apiClient.post(`/menu-items/${menuItemId}/image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Update menu item availability
+  updateMenuItemAvailability: async (menuItemId: string, available: boolean): Promise<ApiResponse<any>> => {
+    const response = await apiClient.patch(`/menu-items/${menuItemId}/availability`, { available });
+    return response.data;
+  },
+
+  // Search menu items
+  searchMenuItems: async (params: any): Promise<ApiResponse<any>> => {
+    const queryParams = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`/menu-items/search?${queryParams}`);
+    return response.data;
+  },
+};
+
+// Category API
+export const categoryApi = {
+  // Get categories
+  getCategories: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get('/categories');
+    return response.data;
+  },
+
+  // Create category
+  createCategory: async (categoryData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/categories', categoryData);
+    return response.data;
+  },
+
+  // Update category
+  updateCategory: async (categoryId: string, categoryData: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put(`/categories/${categoryId}`, categoryData);
+    return response.data;
+  },
+
+  // Delete category
+  deleteCategory: async (categoryId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.delete(`/categories/${categoryId}`);
     return response.data;
   },
 };

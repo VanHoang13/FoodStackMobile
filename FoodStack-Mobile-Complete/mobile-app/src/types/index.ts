@@ -182,6 +182,10 @@ export type RootStackParamList = {
     restaurantId?: string;
     branchId?: string;
   };
+  OrderTracking: {
+    orderId: string;
+    orderNumber?: string;
+  };
   OrderStatus: {
     orderId: string;
     sessionToken?: string;
@@ -195,6 +199,17 @@ export type RootStackParamList = {
   OrderHistory: undefined;
   Profile: undefined;
   Offers: undefined;
+  ServiceRequest: {
+    tableInfo?: TableInfo;
+  };
+  Feedback: {
+    orderId?: string;
+    tableInfo?: TableInfo;
+  };
+  Reservation: {
+    restaurantId?: string;
+    branchId?: string;
+  };
   
   // Restaurant Management Screens (for partners)
   RestaurantDashboard: undefined;
@@ -202,6 +217,10 @@ export type RootStackParamList = {
   OrderManagement: undefined;
   RestaurantStatistics: undefined;
   RestaurantSettings: undefined;
+  KitchenDisplay: undefined;
+  ServiceRequests: undefined;
+  TableManagement: undefined;
+  StaffManagement: undefined;
   AddMenuItem: {
     categoryId: string;
   };
@@ -220,6 +239,9 @@ export type RootStackParamList = {
   AdminReports: undefined;
   AdminApprovals: undefined;
   AdminSettings: undefined;
+  Analytics: undefined;
+  ReservationManagement: undefined;
+  Subscription: undefined;
 };
 
 // Auth Types

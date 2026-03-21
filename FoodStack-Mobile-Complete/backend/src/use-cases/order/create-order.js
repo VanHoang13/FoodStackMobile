@@ -14,25 +14,18 @@ class CreateOrderUseCase {
   }
 
   async execute(dto) {
-    const { qr_token, items = [], customer_count = 1 } = dto;
+    const { tableId, branchId, items = [], customer_count = 1, notes } = dto;
 
-    // ✅ Acceptance 1: QR hợp lệ
-    const table = await this.tableRepository.findByQrToken(qr_token);
-    if (!table) {
-      const err = new Error('Invalid QR code');
-      err.status = 400;
-      throw err;
-    }
-
-    // ✅ Acceptance 2: Table tồn tại
-    if (table.deleted_at) {
+    // ✅ Acceptance 1: Table exists and is valid
+    const table = await this.tableRepository.findById(tableId);
+    if (!table || table.deleted_at) {
       const err = new Error('Table not found');
       err.status = 404;
       throw err;
     }
 
-    // ✅ Acceptance 3: Branch đang mở
-    const branch = await this.branchRepository.findById(table.areas.branch_id);
+    // ✅ Acceptance 2: Branch exists and is active
+    const branch = await this.branchRepository.findById(branchId);
     if (!branch || branch.status !== 'ACTIVE') {
       const err = new Error('Branch is not active');
       err.status = 400;
@@ -45,20 +38,28 @@ class CreateOrderUseCase {
 
     if (items && items.length > 0) {
       for (const item of items) {
-        const menuItem = await this.menuItemRepository.findById(item.menu_item_id);
+        const menuItem = await this.menuItemRepository.findById(item.menuItemId);
         if (!menuItem || !menuItem.available) {
-          const err = new Error(`Menu item ${item.menu_item_id} not available`);
+          const err = new Error(`Menu item ${item.menuItemId} not available`);
           err.status = 400;
           throw err;
         }
 
-        const itemSubtotal = menuItem.price * item.quantity;
+        // Calculate item price including customizations
+        let itemPrice = Number(menuItem.price);
+        if (item.customizations && item.customizations.length > 0) {
+          for (const custom of item.customizations) {
+            itemPrice += Number(custom.priceDelta || 0);
+          }
+        }
+
+        const itemSubtotal = itemPrice * item.quantity;
         subtotal += itemSubtotal;
 
         orderItems.push({
-          menu_item_id: item.menu_item_id,
+          menu_item_id: item.menuItemId,
           quantity: item.quantity,
-          price: menuItem.price,
+          price: itemPrice,
           subtotal: itemSubtotal,
           notes: item.notes || null,
           customizations: item.customizations || []
@@ -74,7 +75,7 @@ class CreateOrderUseCase {
     // Generate order number
     const orderNumber = await this.generateOrderNumber(branch.id);
 
-    // ✅ Acceptance 4-7: Tạo order với status = PENDING, gắn với tableId, lưu order items, tính tổng tiền
+    // ✅ Create order with items
     const order = await this.orderRepository.createWithItems({
       branch_id: branch.id,
       table_id: table.id,
@@ -86,32 +87,35 @@ class CreateOrderUseCase {
       total,
       payment_status: 'UNPAID',
       customer_count,
+      notes: notes || null,
       items: orderItems
     });
 
-    // Update table status to occupied
-    await this.tableRepository.updateStatus(table.id, 'OCCUPIED');
+    // Update table status to occupied if it was available
+    if (table.status === 'AVAILABLE') {
+      await this.tableRepository.updateStatus(table.id, 'OCCUPIED');
+    }
 
     return {
       id: order.id,
-      order_number: order.order_number,
+      orderNumber: order.order_number,
       status: order.status,
       subtotal: order.subtotal,
       tax: order.tax,
-      service_charge: order.service_charge,
+      serviceCharge: order.service_charge,
       total: order.total,
-      payment_status: order.payment_status,
+      paymentStatus: order.payment_status,
       table: {
         id: table.id,
-        table_number: table.table_number,
-        area_name: table.areas.name
+        name: table.table_number,
+        area: table.areas?.name || 'Unknown Area'
       },
       branch: {
         id: branch.id,
         name: branch.name
       },
       items: order.order_items || [],
-      created_at: order.created_at
+      createdAt: order.created_at
     };
   }
 

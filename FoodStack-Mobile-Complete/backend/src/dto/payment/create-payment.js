@@ -1,12 +1,19 @@
 const { z } = require('zod');
 
-const PaymentMethodEnum = z.enum(['QR_PAY', 'E_WALLET', 'CASH']);
-
-const CreatePaymentSchema = z.object({
-  orderId: z.string().min(1),
-  method: PaymentMethodEnum,
-  // optional: nếu bạn muốn cho client gửi amount (thường lấy từ order.total tốt hơn)
-  amount: z.number().positive().optional(),
+const CreatePaymentDto = z.object({
+  orderId: z.string().uuid('Invalid order ID'),
+  paymentMethod: z.enum(['PAYOS', 'MOMO', 'ZALOPAY', 'BANKING_QR', 'CASH'], {
+    errorMap: () => ({ message: 'Invalid payment method' })
+  }),
+  amount: z.number().positive('Amount must be positive'),
+  customerInfo: z.object({
+    name: z.string().min(1, 'Customer name is required').max(100, 'Name must not exceed 100 characters'),
+    phone: z.string().regex(/^(\+84|0)[0-9]{9,10}$/, 'Invalid phone number format').optional(),
+    email: z.string().email('Invalid email format').optional()
+  }).optional(),
+  returnUrl: z.string().url('Invalid return URL').optional(),
+  cancelUrl: z.string().url('Invalid cancel URL').optional(),
+  description: z.string().max(200, 'Description must not exceed 200 characters').optional()
 });
 
-module.exports = { CreatePaymentSchema, PaymentMethodEnum };
+module.exports = { CreatePaymentDto };

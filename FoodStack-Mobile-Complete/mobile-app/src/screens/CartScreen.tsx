@@ -12,9 +12,9 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { RootStackParamList, TableInfo, OrderItem } from '../types';
-import { orderApi, storage } from '../services/api';
-import { useCartContext } from '../context/CartContext';
+import { RootStackParamList } from '../types';
+import { useCart, CartItem } from '../contexts/CartContext';
+import { orderApi } from '../services/api';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
 
@@ -23,119 +23,112 @@ type CartScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Cart'>;
 interface Props {
   navigation: CartScreenNavigationProp;
   route: {
-    params: {
-      tableInfo?: TableInfo;
+    params?: {
+      tableInfo?: any;
       sessionToken?: string;
-      restaurantId?: string;
-      branchId?: string;
     };
   };
 }
 
 const CartScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { tableInfo, sessionToken } = route.params || {};
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  
   const { 
-    cartItems, 
+    items, 
+    totalItems, 
+    totalAmount, 
     updateQuantity, 
-    removeFromCart, 
-    getTotalPrice, 
-    getTotalItems,
-    clearCart 
-  } = useCartContext();
+    removeItem, 
+    clearCart,
+    tableInfo,
+    sessionToken 
+  } = useCart();
+  
+  const [loading, setLoading] = useState(false);
+  const [orderNotes, setOrderNotes] = useState('');
 
-  const totalPrice = getTotalPrice();
-  const totalItems = getTotalItems();
-
-  const handleQuantityChange = (index: number, newQuantity: number) => {
+  const handleQuantityChange = (item: CartItem, change: number) => {
+    const newQuantity = item.quantity + change;
     if (newQuantity <= 0) {
-      Alert.alert(
-        'Xóa món khỏi giỏ hàng',
-        'Bạn có chắc chắn muốn xóa món này?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Xóa', style: 'destructive', onPress: () => removeFromCart(index) }
-        ]
-      );
+      removeItem(item.id);
     } else {
-      updateQuantity(index, newQuantity);
+      updateQuantity(item.id, newQuantity);
     }
   };
 
   const handlePlaceOrder = async () => {
-    if (cartItems.length === 0) {
-      Alert.alert('Giỏ hàng trống', 'Vui lòng thêm món vào giỏ hàng trước khi đặt hàng');
+    if (items.length === 0) {
+      Alert.alert('Giỏ hàng trống', 'Vui lòng thêm món vào giỏ hàng');
       return;
     }
 
-    if (!sessionToken) {
-      Alert.alert('Lỗi', 'Không tìm thấy session. Vui lòng quét lại mã QR');
+    if (!tableInfo) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin bàn');
       return;
     }
 
-    setIsPlacingOrder(true);
+    setLoading(true);
 
     try {
-      // Convert cart items to order items format
-      const orderItems: OrderItem[] = cartItems.map(cartItem => ({
-        menu_item_id: cartItem.menu_item.id,
-        quantity: cartItem.quantity,
-        notes: cartItem.notes,
-        customizations: cartItem.selected_customizations.flatMap(group =>
-          group.options.map(option => ({
-            option_id: option.id
-          }))
-        )
+      // Prepare order items
+      const orderItems = items.map(item => ({
+        menuItemId: item.menuItem.id,
+        quantity: item.quantity,
+        price: Number(item.menuItem.price),
+        customizations: item.customizations || [],
+        notes: item.notes || '',
       }));
 
       // Create order
-      const orderResult = await orderApi.createOrder(
-        sessionToken,
-        orderItems,
-        'Đặt hàng từ mobile app'
-      );
+      const orderData = {
+        tableId: tableInfo.table.id,
+        branchId: tableInfo.branch.id,
+        items: orderItems,
+        notes: orderNotes,
+        customerCount: 1, // Default, can be made configurable
+      };
 
-      // Clear cart after successful order
-      clearCart();
+      console.log('🛒 Placing order:', orderData);
 
-      // Navigate to order status
-      navigation.replace('OrderStatus', {
-        orderId: orderResult.order_id,
-        sessionToken,
-        tableInfo,
-      });
+      const response = await orderApi.createOrder(orderData);
 
-      Alert.alert(
-        'Đặt hàng thành công!',
-        `Đơn hàng #${orderResult.order_id} đã được tạo. Tổng tiền: ${orderResult.total_amount.toLocaleString('vi-VN')}đ`
-      );
-
+      if (response.success) {
+        Alert.alert(
+          'Đặt hàng thành công!',
+          `Đơn hàng #${response.data.orderNumber} đã được gửi đến bếp`,
+          [
+            {
+              text: 'Theo dõi đơn hàng',
+              onPress: () => {
+                clearCart();
+                navigation.navigate('OrderTracking', { 
+                  orderId: response.data.id,
+                  orderNumber: response.data.orderNumber 
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        throw new Error(response.message || 'Không thể đặt hàng');
+      }
     } catch (error) {
-      console.error('Place order error:', error);
+      console.error('❌ Order placement error:', error);
       Alert.alert(
         'Lỗi đặt hàng',
-        error instanceof Error ? error.message : 'Không thể đặt hàng. Vui lòng thử lại.'
+        error instanceof Error ? error.message : 'Không thể đặt hàng, vui lòng thử lại'
       );
     } finally {
-      setIsPlacingOrder(false);
+      setLoading(false);
     }
   };
 
-  const handleClearCart = () => {
-    Alert.alert(
-      'Xóa toàn bộ giỏ hàng',
-      'Bạn có chắc chắn muốn xóa tất cả món trong giỏ hàng?',
-      [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa tất cả', style: 'destructive', onPress: clearCart }
-      ]
-    );
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
   };
 
-  if (cartItems.length === 0) {
+  if (items.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -144,20 +137,21 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
             <Icon name="back" size={20} color="#333" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Giỏ hàng</Text>
-          <View style={styles.placeholder} />
+          <View style={styles.headerRight} />
         </View>
 
+        {/* Empty State */}
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🛒</Text>
           <Text style={styles.emptyTitle}>Giỏ hàng trống</Text>
           <Text style={styles.emptyMessage}>
-            Hãy thêm món ăn vào giỏ hàng để bắt đầu đặt hàng
+            Hãy thêm món ăn vào giỏ hàng để đặt hàng
           </Text>
           <TouchableOpacity
-            style={styles.continueShoppingButton}
+            style={styles.continueButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.continueShoppingText}>Tiếp tục mua sắm</Text>
+            <Text style={styles.continueButtonText}>Tiếp tục xem menu</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -165,7 +159,7 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -174,144 +168,157 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <Icon name="back" size={20} color="#333" />
         </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>
-          Giỏ hàng ({totalItems} món)
-        </Text>
-        
+        <Text style={styles.headerTitle}>Giỏ hàng ({totalItems})</Text>
         <TouchableOpacity
           style={styles.clearButton}
-          onPress={handleClearCart}
+          onPress={() => {
+            Alert.alert(
+              'Xóa giỏ hàng',
+              'Bạn có chắc muốn xóa tất cả món trong giỏ hàng?',
+              [
+                { text: 'Hủy', style: 'cancel' },
+                { text: 'Xóa', style: 'destructive', onPress: clearCart },
+              ]
+            );
+          }}
         >
-          <Icon name="trash" size={18} color="#FF3B30" />
+          <Icon name="trash" size={18} color="#E74C3C" />
         </TouchableOpacity>
       </View>
 
-      {/* Table Info */}
-      {tableInfo && (
-        <View style={styles.tableInfoContainer}>
-          <Icon name="table" size={16} color="#E8622A" />
-          <Text style={styles.tableInfoText}>
-            Bàn {tableInfo.table.name} - {tableInfo.restaurant.name}
-          </Text>
-        </View>
-      )}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Table Info */}
+        {tableInfo && (
+          <View style={styles.tableInfo}>
+            <Icon name="map-pin" size={16} color="#E8622A" />
+            <Text style={styles.tableInfoText}>
+              {tableInfo.restaurant.name} - Bàn {tableInfo.table.name}
+            </Text>
+          </View>
+        )}
 
-      {/* Cart Items */}
-      <ScrollView style={styles.cartItemsContainer} showsVerticalScrollIndicator={false}>
-        {cartItems.map((item, index) => (
-          <View key={index} style={styles.cartItem}>
-            <View style={styles.itemImageContainer}>
-              {item.menu_item.image_url ? (
-                <Image
-                  source={{ uri: item.menu_item.image_url }}
-                  style={styles.itemImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.itemImagePlaceholder}>
-                  <Icon name="image" size={20} color="#ccc" />
+        {/* Cart Items */}
+        <View style={styles.itemsContainer}>
+          {items.map((item) => (
+            <View key={item.id} style={styles.cartItem}>
+              <View style={styles.itemContent}>
+                {/* Item Image */}
+                <View style={styles.itemImageContainer}>
+                  {item.menuItem.image_url ? (
+                    <Image
+                      source={{ uri: item.menuItem.image_url }}
+                      style={styles.itemImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.itemImagePlaceholder}>
+                      <Icon name="image" size={20} color="#ccc" />
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
 
-            <View style={styles.itemDetails}>
-              <Text style={styles.itemName}>{item.menu_item.name}</Text>
-              
-              {/* Customizations */}
-              {item.selected_customizations.length > 0 && (
-                <View style={styles.customizationsContainer}>
-                  {item.selected_customizations.map((group, groupIndex) => (
-                    <View key={groupIndex}>
-                      {group.options.map((option, optionIndex) => (
-                        <Text key={optionIndex} style={styles.customizationText}>
-                          • {option.name}
-                          {option.price_delta !== 0 && (
-                            <Text style={styles.customizationPrice}>
-                              {' '}({option.price_delta > 0 ? '+' : ''}
-                              {option.price_delta.toLocaleString('vi-VN')}đ)
-                            </Text>
-                          )}
+                {/* Item Details */}
+                <View style={styles.itemDetails}>
+                  <Text style={styles.itemName}>{item.menuItem.name}</Text>
+                  
+                  {/* Customizations */}
+                  {item.customizations && item.customizations.length > 0 && (
+                    <View style={styles.customizations}>
+                      {item.customizations.map((custom, index) => (
+                        <Text key={index} style={styles.customizationText}>
+                          • {custom.groupName}: {custom.optionName}
+                          {custom.priceDelta > 0 && ` (+${formatPrice(custom.priceDelta)})`}
                         </Text>
                       ))}
                     </View>
-                  ))}
-                </View>
-              )}
+                  )}
 
-              {/* Notes */}
-              {item.notes && (
-                <Text style={styles.itemNotes}>Ghi chú: {item.notes}</Text>
-              )}
+                  {/* Notes */}
+                  {item.notes && (
+                    <Text style={styles.itemNotes}>Ghi chú: {item.notes}</Text>
+                  )}
 
-              <View style={styles.itemFooter}>
-                <Text style={styles.itemPrice}>
-                  {item.total_price.toLocaleString('vi-VN')}đ
-                </Text>
-                
-                <View style={styles.quantityControls}>
-                  <TouchableOpacity
-                    style={styles.quantityButton}
-                    onPress={() => handleQuantityChange(index, item.quantity - 1)}
-                  >
-                    <Icon name="minus" size={14} color="#333" />
-                  </TouchableOpacity>
-                  
-                  <Text style={styles.quantityText}>{item.quantity}</Text>
-                  
-                  <TouchableOpacity
-                    style={styles.quantityButton}
-                    onPress={() => handleQuantityChange(index, item.quantity + 1)}
-                  >
-                    <Icon name="plus" size={14} color="#333" />
-                  </TouchableOpacity>
+                  {/* Price & Quantity */}
+                  <View style={styles.itemFooter}>
+                    <Text style={styles.itemPrice}>{formatPrice(item.subtotal)}</Text>
+                    
+                    <View style={styles.quantityControls}>
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() => handleQuantityChange(item, -1)}
+                      >
+                        <Icon name="minus" size={16} color="#666" />
+                      </TouchableOpacity>
+                      
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                      
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() => handleQuantityChange(item, 1)}
+                      >
+                        <Icon name="plus" size={16} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
+
+                {/* Remove Button */}
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeItem(item.id)}
+                >
+                  <Icon name="close" size={16} color="#E74C3C" />
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
-      {/* Bottom Summary */}
-      <View style={styles.bottomContainer}>
+        {/* Order Summary */}
         <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Tóm tắt đơn hàng</Text>
+          
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Tạm tính ({totalItems} món)</Text>
-            <Text style={styles.summaryValue}>
-              {totalPrice.toLocaleString('vi-VN')}đ
-            </Text>
+            <Text style={styles.summaryValue}>{formatPrice(totalAmount)}</Text>
           </View>
           
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Phí dịch vụ (5%)</Text>
-            <Text style={styles.summaryValue}>
-              {Math.round(totalPrice * 0.05).toLocaleString('vi-VN')}đ
-            </Text>
+            <Text style={styles.summaryValue}>{formatPrice(totalAmount * 0.05)}</Text>
           </View>
           
-          <View style={[styles.summaryRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Tổng cộng</Text>
-            <Text style={styles.totalValue}>
-              {Math.round(totalPrice * 1.05).toLocaleString('vi-VN')}đ
+          <View style={styles.summaryDivider} />
+          
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryTotal}>Tổng cộng</Text>
+            <Text style={styles.summaryTotalAmount}>
+              {formatPrice(totalAmount * 1.05)}
             </Text>
           </View>
         </View>
+      </ScrollView>
 
+      {/* Bottom Action */}
+      <View style={styles.bottomContainer}>
         <TouchableOpacity
-          style={[styles.placeOrderButton, isPlacingOrder && styles.disabledButton]}
+          style={[styles.orderButton, loading && styles.orderButtonDisabled]}
           onPress={handlePlaceOrder}
-          disabled={isPlacingOrder}
+          disabled={loading}
         >
           <LinearGradient
-            colors={['#FF7A30', '#E8622A']}
-            style={styles.placeOrderGradient}
+            colors={loading ? ['#ccc', '#999'] : ['#E8622A', '#D55A1F']}
+            style={styles.orderButtonGradient}
           >
-            {isPlacingOrder ? (
+            {loading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.placeOrderText}>Đặt hàng ngay</Text>
+              <>
+                <Icon name="check" size={20} color="#fff" />
+                <Text style={styles.orderButtonText}>
+                  Đặt hàng • {formatPrice(totalAmount * 1.05)}
+                </Text>
+              </>
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -325,7 +332,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -337,117 +344,82 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  
+
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
   },
-  
+
+  headerRight: {
+    width: 40,
+  },
+
   clearButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  placeholder: {
-    width: 40,
+
+  // Content
+  content: {
+    flex: 1,
   },
-  
-  // Table Info
-  tableInfoContainer: {
+
+  tableInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFF8F5',
+    marginBottom: 8,
     gap: 8,
   },
-  
+
   tableInfoText: {
     fontSize: 14,
-    color: '#E8622A',
-    fontWeight: '500',
-  },
-  
-  // Empty State
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 8,
-  },
-  
-  emptyMessage: {
-    fontSize: 16,
     color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  
-  continueShoppingButton: {
-    backgroundColor: '#E8622A',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  
-  continueShoppingText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
   },
-  
-  // Cart Items
-  cartItemsContainer: {
-    flex: 1,
-  },
-  
-  cartItem: {
-    flexDirection: 'row',
+
+  // Items
+  itemsContainer: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    padding: 16,
-    ...theme.shadows.sm,
+    marginBottom: 8,
   },
-  
+
+  cartItem: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+
+  itemContent: {
+    flexDirection: 'row',
+    padding: 16,
+  },
+
   itemImageContainer: {
     marginRight: 12,
   },
-  
+
   itemImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
   },
-  
+
   itemImagePlaceholder: {
     width: 60,
     height: 60,
@@ -456,146 +428,202 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   itemDetails: {
     flex: 1,
   },
-  
+
   itemName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#333',
     marginBottom: 4,
   },
-  
-  customizationsContainer: {
-    marginBottom: 8,
+
+  customizations: {
+    marginBottom: 4,
   },
-  
+
   customizationText: {
     fontSize: 12,
     color: '#666',
     marginBottom: 2,
   },
-  
-  customizationPrice: {
-    color: '#E8622A',
-  },
-  
+
   itemNotes: {
     fontSize: 12,
-    color: '#666',
+    color: '#E8622A',
     fontStyle: 'italic',
     marginBottom: 8,
   },
-  
+
   itemFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  
+
   itemPrice: {
     fontSize: 16,
     fontWeight: '700',
     color: '#E8622A',
   },
-  
+
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6,
-    padding: 2,
+    gap: 12,
   },
-  
+
   quantityButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    backgroundColor: '#fff',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   quantityText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginHorizontal: 12,
-    minWidth: 16,
+    minWidth: 20,
     textAlign: 'center',
   },
-  
-  // Bottom Container
-  bottomContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+
+  removeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f8f8f8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
-  
+
+  // Summary
   summaryContainer: {
-    marginBottom: 16,
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 8,
   },
-  
+
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 12,
+  },
+
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    marginBottom: 8,
   },
-  
+
   summaryLabel: {
     fontSize: 14,
     color: '#666',
   },
-  
+
   summaryValue: {
     fontSize: 14,
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-    marginTop: 8,
+
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 8,
   },
-  
-  totalLabel: {
+
+  summaryTotal: {
     fontSize: 16,
     fontWeight: '700',
     color: '#333',
   },
-  
-  totalValue: {
+
+  summaryTotalAmount: {
     fontSize: 18,
     fontWeight: '700',
     color: '#E8622A',
   },
-  
-  placeOrderButton: {
+
+  // Bottom
+  bottomContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+
+  orderButton: {
     borderRadius: 12,
     overflow: 'hidden',
+    ...theme.shadows.md,
   },
-  
-  disabledButton: {
+
+  orderButtonDisabled: {
     opacity: 0.6,
   },
-  
-  placeOrderGradient: {
-    paddingVertical: 16,
+
+  orderButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
   },
-  
-  placeOrderText: {
+
+  orderButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // Empty State
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+
+  emptyIcon: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+
+  emptyMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+
+  continueButton: {
+    backgroundColor: '#E8622A',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+
+  continueButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

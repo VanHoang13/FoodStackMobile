@@ -567,6 +567,11 @@ function createApp() {
         orders: '/api/v1/orders',
         public: '/api/v1/public',
         customerOrders: '/api/v1/customer-orders',
+        'service-requests': '/api/v1/service-requests',
+        payments: '/api/v1/payments',
+        feedback: '/api/v1/feedback',
+        subscriptions: '/api/v1/subscriptions',
+        analytics: '/api/v1/analytics',
         health: '/health',
       },
     });
@@ -596,6 +601,13 @@ function createApp() {
   app.use('/api/v1/orders', createOrderRoutes(orderController, authMiddleware));
   app.use('/api/v1/public', createPublicRoutes(prisma));
   app.use('/api/v1/customer-orders', createCustomerOrderRoutes(prisma));
+
+  // New API routes
+  app.use('/api/v1/service-requests', require('./routes/v1/service-requests'));
+  app.use('/api/v1/payments', require('./routes/v1/payments'));
+  app.use('/api/v1/feedback', require('./routes/v1/feedback'));
+  app.use('/api/v1/subscriptions', require('./routes/v1/subscriptions'));
+  app.use('/api/v1/analytics', require('./routes/v1/analytics'));
 
   // 404
   app.use((req, res) => {

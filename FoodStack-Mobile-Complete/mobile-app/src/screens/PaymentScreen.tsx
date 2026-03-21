@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,12 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { RootStackParamList, TableInfo } from '../types';
+import { RootStackParamList } from '../types';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
 
@@ -23,120 +24,229 @@ interface Props {
     params: {
       orderId: string;
       sessionToken?: string;
-      tableInfo?: TableInfo;
+      tableInfo?: any;
     };
   };
 }
 
+interface PaymentMethod {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  available: boolean;
+}
+
+interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  subtotal: number;
+  tax: number;
+  serviceCharge: number;
+  total: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    subtotal: number;
+  }>;
+}
+
+const PAYMENT_METHODS: PaymentMethod[] = [
+  {
+    id: 'payos',
+    name: 'PayOS',
+    description: 'Thanh toán qua PayOS (QR Code)',
+    icon: 'credit-card',
+    color: '#E8622A',
+    available: true,
+  },
+  {
+    id: 'momo',
+    name: 'MoMo',
+    description: 'Ví điện tử MoMo',
+    icon: 'smartphone',
+    color: '#D82D8B',
+    available: true,
+  },
+  {
+    id: 'zalopay',
+    name: 'ZaloPay',
+    description: 'Ví điện tử ZaloPay',
+    icon: 'zap',
+    color: '#0068FF',
+    available: true,
+  },
+  {
+    id: 'banking',
+    name: 'Internet Banking',
+    description: 'Chuyển khoản ngân hàng',
+    icon: 'home',
+    color: '#27AE60',
+    available: true,
+  },
+  {
+    id: 'cash',
+    name: 'Tiền mặt',
+    description: 'Thanh toán trực tiếp tại quầy',
+    icon: 'dollar-sign',
+    color: '#F39C12',
+    available: true,
+  },
+];
+
 const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
   const { orderId, sessionToken, tableInfo } = route.params;
-  const [selectedMethod, setSelectedMethod] = useState<string>('cash');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
-  const paymentMethods = [
-    {
-      id: 'cash',
-      name: 'Tiền mặt',
-      description: 'Thanh toán trực tiếp với nhân viên',
-      icon: '💵',
-      available: true,
-    },
-    {
-      id: 'card',
-      name: 'Thẻ tín dụng/ghi nợ',
-      description: 'Thanh toán qua thẻ ngân hàng',
-      icon: '💳',
-      available: true,
-    },
-    {
-      id: 'momo',
-      name: 'MoMo',
-      description: 'Ví điện tử MoMo',
-      icon: '📱',
-      available: false, // Chưa tích hợp
-    },
-    {
-      id: 'zalopay',
-      name: 'ZaloPay',
-      description: 'Ví điện tử ZaloPay',
-      icon: '💙',
-      available: false, // Chưa tích hợp
-    },
-    {
-      id: 'banking',
-      name: 'Chuyển khoản ngân hàng',
-      description: 'Chuyển khoản qua QR Banking',
-      icon: '🏦',
-      available: false, // Chưa tích hợp
-    },
-  ];
+  useEffect(() => {
+    loadOrderSummary();
+  }, [orderId]);
 
-  const handlePayment = async () => {
-    if (!selectedMethod) {
-      Alert.alert('Lỗi', 'Vui lòng chọn phương thức thanh toán');
-      return;
-    }
-
-    setIsProcessing(true);
-
+  const loadOrderSummary = async () => {
+    setLoading(true);
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      if (selectedMethod === 'cash') {
-        Alert.alert(
-          'Thanh toán tiền mặt',
-          'Vui lòng thanh toán trực tiếp với nhân viên. Đơn hàng sẽ được cập nhật sau khi thanh toán.',
-          [
-            {
-              text: 'Đã hiểu',
-              onPress: () => {
-                navigation.replace('OrderStatus', {
-                  orderId,
-                  sessionToken,
-                  tableInfo,
-                });
-              }
-            }
-          ]
-        );
-      } else if (selectedMethod === 'card') {
-        Alert.alert(
-          'Thanh toán thẻ',
-          'Vui lòng đưa thẻ cho nhân viên để thanh toán. Đơn hàng sẽ được cập nhật sau khi thanh toán.',
-          [
-            {
-              text: 'Đã hiểu',
-              onPress: () => {
-                navigation.replace('OrderStatus', {
-                  orderId,
-                  sessionToken,
-                  tableInfo,
-                });
-              }
-            }
-          ]
-        );
-      } else {
-        // For other methods (not implemented yet)
-        Alert.alert(
-          'Chức năng đang phát triển',
-          'Phương thức thanh toán này đang được phát triển. Vui lòng chọn phương thức khác.',
-        );
-      }
-
+      // Simulate API call to get order summary
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock order data
+      setOrderSummary({
+        id: orderId,
+        orderNumber: 'ORD-20240322-001',
+        subtotal: 450000,
+        tax: 45000,
+        serviceCharge: 22500,
+        total: 517500,
+        items: [
+          { name: 'Phở Bò Tái', quantity: 2, price: 85000, subtotal: 170000 },
+          { name: 'Gỏi Cuốn Tôm', quantity: 1, price: 65000, subtotal: 65000 },
+          { name: 'Chả Cá Lã Vọng', quantity: 1, price: 120000, subtotal: 120000 },
+          { name: 'Trà Đá', quantity: 3, price: 15000, subtotal: 45000 },
+          { name: 'Bia Saigon', quantity: 2, price: 25000, subtotal: 50000 },
+        ],
+      });
     } catch (error) {
-      Alert.alert(
-        'Lỗi thanh toán',
-        'Không thể xử lý thanh toán. Vui lòng thử lại.'
-      );
+      console.error('❌ Load order summary error:', error);
+      Alert.alert('Lỗi', 'Không thể tải thông tin đơn hàng');
     } finally {
-      setIsProcessing(false);
+      setLoading(false);
     }
   };
 
+  const handlePayment = async (method: PaymentMethod) => {
+    if (!orderSummary) return;
+
+    setSelectedMethod(method.id);
+    setPaymentLoading(true);
+
+    try {
+      if (method.id === 'cash') {
+        // Cash payment - just show confirmation
+        Alert.alert(
+          'Thanh toán tiền mặt',
+          'Vui lòng thanh toán tại quầy. Nhân viên sẽ hỗ trợ bạn.',
+          [
+            {
+              text: 'Đã hiểu',
+              onPress: () => {
+                navigation.navigate('OrderTracking', { 
+                  orderId: orderSummary.id,
+                  orderNumber: orderSummary.orderNumber 
+                });
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      if (method.id === 'payos') {
+        // PayOS payment - simulate QR code generation
+        const paymentUrl = `https://pay.payos.vn/web/${orderId}`;
+        
+        Alert.alert(
+          'Thanh toán PayOS',
+          'Bạn sẽ được chuyển đến trang thanh toán PayOS',
+          [
+            {
+              text: 'Hủy',
+              style: 'cancel',
+            },
+            {
+              text: 'Tiếp tục',
+              onPress: () => {
+                Linking.openURL(paymentUrl).catch(() => {
+                  Alert.alert('Lỗi', 'Không thể mở trang thanh toán');
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        // Other payment methods
+        Alert.alert(
+          'Thanh toán thành công!',
+          `Đơn hàng #${orderSummary.orderNumber} đã được thanh toán qua ${method.name}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('OrderTracking', { 
+                  orderId: orderSummary.id,
+                  orderNumber: orderSummary.orderNumber 
+                });
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Payment error:', error);
+      Alert.alert('Lỗi thanh toán', 'Không thể xử lý thanh toán, vui lòng thử lại');
+    } finally {
+      setPaymentLoading(false);
+      setSelectedMethod(null);
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#E8622A" />
+          <Text style={styles.loadingText}>Đang tải thông tin thanh toán...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!orderSummary) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Không thể tải đơn hàng</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadOrderSummary}>
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -145,138 +255,116 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
         >
           <Icon name="back" size={20} color="#333" />
         </TouchableOpacity>
-        
         <Text style={styles.headerTitle}>Thanh toán</Text>
-        
-        <View style={styles.placeholder} />
+        <View style={styles.headerRight} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Order Info */}
-        <View style={styles.orderInfoContainer}>
-          <Text style={styles.orderId}>Đơn hàng #{orderId}</Text>
+        {/* Order Summary */}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Đơn hàng #{orderSummary.orderNumber}</Text>
+          
+          {/* Table Info */}
           {tableInfo && (
-            <Text style={styles.tableInfo}>
-              Bàn {tableInfo.table.name} - {tableInfo.restaurant.name}
-            </Text>
+            <View style={styles.tableInfo}>
+              <Icon name="map-pin" size={16} color="#666" />
+              <Text style={styles.tableInfoText}>
+                Bàn {tableInfo.table?.name} - {tableInfo.restaurant?.name || tableInfo.branch?.restaurant?.name}
+              </Text>
+            </View>
           )}
+
+          {/* Order Items */}
+          <View style={styles.itemsList}>
+            {orderSummary.items.map((item, index) => (
+              <View key={index} style={styles.orderItem}>
+                <View style={styles.orderItemInfo}>
+                  <Text style={styles.orderItemName}>{item.name}</Text>
+                  <Text style={styles.orderItemDetails}>
+                    {formatPrice(item.price)} x {item.quantity}
+                  </Text>
+                </View>
+                <Text style={styles.orderItemTotal}>{formatPrice(item.subtotal)}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Totals */}
+          <View style={styles.totalsContainer}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Tạm tính</Text>
+              <Text style={styles.totalValue}>{formatPrice(orderSummary.subtotal)}</Text>
+            </View>
+            
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Phí dịch vụ (5%)</Text>
+              <Text style={styles.totalValue}>{formatPrice(orderSummary.serviceCharge)}</Text>
+            </View>
+            
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Thuế (10%)</Text>
+              <Text style={styles.totalValue}>{formatPrice(orderSummary.tax)}</Text>
+            </View>
+            
+            <View style={styles.totalDivider} />
+            
+            <View style={styles.totalRow}>
+              <Text style={styles.totalFinal}>Tổng cộng</Text>
+              <Text style={styles.totalFinalAmount}>{formatPrice(orderSummary.total)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Payment Methods */}
-        <View style={styles.paymentMethodsContainer}>
-          <Text style={styles.sectionTitle}>Chọn phương thức thanh toán</Text>
+        <View style={styles.paymentContainer}>
+          <Text style={styles.paymentTitle}>Chọn phương thức thanh toán</Text>
           
-          {paymentMethods.map((method) => (
+          {PAYMENT_METHODS.map((method) => (
             <TouchableOpacity
               key={method.id}
               style={[
                 styles.paymentMethod,
-                selectedMethod === method.id && styles.selectedPaymentMethod,
-                !method.available && styles.disabledPaymentMethod,
+                !method.available && styles.paymentMethodDisabled,
               ]}
-              onPress={() => method.available && setSelectedMethod(method.id)}
-              disabled={!method.available}
+              onPress={() => method.available && handlePayment(method)}
+              disabled={!method.available || paymentLoading}
             >
-              <View style={styles.methodIcon}>
-                <Text style={styles.methodIconText}>{method.icon}</Text>
-              </View>
-              
-              <View style={styles.methodInfo}>
-                <Text style={[
-                  styles.methodName,
-                  !method.available && styles.disabledText
-                ]}>
-                  {method.name}
-                </Text>
-                <Text style={[
-                  styles.methodDescription,
-                  !method.available && styles.disabledText
-                ]}>
-                  {method.description}
-                </Text>
-                {!method.available && (
-                  <Text style={styles.comingSoonText}>Sắp ra mắt</Text>
-                )}
-              </View>
-              
-              <View style={[
-                styles.radioButton,
-                selectedMethod === method.id && styles.selectedRadioButton,
-                !method.available && styles.disabledRadioButton,
-              ]}>
-                {selectedMethod === method.id && method.available && (
-                  <View style={styles.radioButtonInner} />
+              <View style={styles.paymentMethodContent}>
+                <View style={[styles.paymentIcon, { backgroundColor: method.color }]}>
+                  {paymentLoading && selectedMethod === method.id ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Icon name={method.icon} size={20} color="#fff" />
+                  )}
+                </View>
+                
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentName}>{method.name}</Text>
+                  <Text style={styles.paymentDescription}>{method.description}</Text>
+                </View>
+
+                {method.available ? (
+                  <Icon name="chevron-right" size={20} color="#ccc" />
+                ) : (
+                  <Text style={styles.unavailableText}>Không khả dụng</Text>
                 )}
               </View>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Payment Instructions */}
-        {selectedMethod && (
-          <View style={styles.instructionsContainer}>
-            <Text style={styles.sectionTitle}>Hướng dẫn thanh toán</Text>
-            
-            {selectedMethod === 'cash' && (
-              <View style={styles.instructionCard}>
-                <Text style={styles.instructionIcon}>💵</Text>
-                <View style={styles.instructionContent}>
-                  <Text style={styles.instructionTitle}>Thanh toán tiền mặt</Text>
-                  <Text style={styles.instructionText}>
-                    1. Nhấn "Xác nhận thanh toán" bên dưới{'\n'}
-                    2. Gọi nhân viên đến bàn{'\n'}
-                    3. Thanh toán trực tiếp với nhân viên{'\n'}
-                    4. Nhận hóa đơn và hoàn tất
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {selectedMethod === 'card' && (
-              <View style={styles.instructionCard}>
-                <Text style={styles.instructionIcon}>💳</Text>
-                <View style={styles.instructionContent}>
-                  <Text style={styles.instructionTitle}>Thanh toán thẻ</Text>
-                  <Text style={styles.instructionText}>
-                    1. Nhấn "Xác nhận thanh toán" bên dưới{'\n'}
-                    2. Gọi nhân viên mang máy POS{'\n'}
-                    3. Đưa thẻ cho nhân viên{'\n'}
-                    4. Nhập mã PIN và xác nhận{'\n'}
-                    5. Nhận hóa đơn và hoàn tất
-                  </Text>
-                </View>
-              </View>
-            )}
+        {/* Security Info */}
+        <View style={styles.securityContainer}>
+          <View style={styles.securityHeader}>
+            <Icon name="shield" size={16} color="#27AE60" />
+            <Text style={styles.securityTitle}>Thanh toán an toàn</Text>
           </View>
-        )}
-
-        <View style={{ height: 120 }} />
+          <Text style={styles.securityText}>
+            Thông tin thanh toán của bạn được mã hóa và bảo mật tuyệt đối. 
+            Chúng tôi không lưu trữ thông tin thẻ của bạn.
+          </Text>
+        </View>
       </ScrollView>
-
-      {/* Bottom Payment Button */}
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={[
-            styles.paymentButton,
-            (!selectedMethod || isProcessing) && styles.disabledButton
-          ]}
-          onPress={handlePayment}
-          disabled={!selectedMethod || isProcessing}
-        >
-          <LinearGradient
-            colors={['#FF7A30', '#E8622A']}
-            style={styles.paymentGradient}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.paymentButtonText}>
-                Xác nhận thanh toán
-              </Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 };
@@ -286,7 +374,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',
@@ -298,225 +386,264 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  
+
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
   },
-  
-  placeholder: {
+
+  headerRight: {
     width: 40,
   },
-  
+
   // Content
   content: {
     flex: 1,
   },
-  
-  // Order Info
-  orderInfoContainer: {
+
+  // Order Summary
+  summaryContainer: {
     backgroundColor: '#fff',
     padding: 16,
     marginBottom: 16,
-    alignItems: 'center',
   },
-  
-  orderId: {
+
+  summaryTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 12,
   },
-  
+
   tableInfo: {
-    fontSize: 14,
-    color: '#E8622A',
-    fontWeight: '500',
-  },
-  
-  // Payment Methods
-  paymentMethodsContainer: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    ...theme.shadows.sm,
-  },
-  
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 16,
-  },
-  
-  paymentMethod: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    gap: 8,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  
-  selectedPaymentMethod: {
-    borderColor: '#E8622A',
-    backgroundColor: '#FFF8F5',
-  },
-  
-  disabledPaymentMethod: {
-    opacity: 0.5,
-    backgroundColor: '#f9f9f9',
-  },
-  
-  methodIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  
-  methodIconText: {
-    fontSize: 20,
-  },
-  
-  methodInfo: {
-    flex: 1,
-  },
-  
-  methodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  
-  methodDescription: {
+
+  tableInfoText: {
     fontSize: 14,
     color: '#666',
-    lineHeight: 20,
   },
-  
-  comingSoonText: {
-    fontSize: 12,
-    color: '#FF9500',
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  
-  disabledText: {
-    color: '#999',
-  },
-  
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  selectedRadioButton: {
-    borderColor: '#E8622A',
-  },
-  
-  disabledRadioButton: {
-    borderColor: '#ccc',
-  },
-  
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#E8622A',
-  },
-  
-  // Instructions
-  instructionsContainer: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
+
+  itemsList: {
     marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    ...theme.shadows.sm,
   },
-  
-  instructionCard: {
+
+  orderItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 12,
-    padding: 16,
-  },
-  
-  instructionIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  
-  instructionContent: {
-    flex: 1,
-  },
-  
-  instructionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
     marginBottom: 8,
   },
-  
-  instructionText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+
+  orderItemInfo: {
+    flex: 1,
   },
-  
-  // Bottom Container
-  bottomContainer: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+
+  orderItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+
+  orderItemDetails: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  orderItemTotal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#E8622A',
+  },
+
+  totalsContainer: {
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
+    paddingTop: 12,
   },
-  
-  paymentButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  
-  disabledButton: {
-    opacity: 0.6,
-  },
-  
-  paymentGradient: {
-    paddingVertical: 16,
+
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  
-  paymentButtonText: {
+
+  totalLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  totalValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+  },
+
+  totalDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 8,
+  },
+
+  totalFinal: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#333',
+  },
+
+  totalFinalAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#E8622A',
+  },
+
+  // Payment Methods
+  paymentContainer: {
+    backgroundColor: '#fff',
+    marginBottom: 16,
+  },
+
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    padding: 16,
+    paddingBottom: 8,
+  },
+
+  paymentMethod: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+
+  paymentMethodDisabled: {
+    opacity: 0.5,
+  },
+
+  paymentMethodContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+
+  paymentIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  paymentInfo: {
+    flex: 1,
+  },
+
+  paymentName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+
+  paymentDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  unavailableText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+
+  // Security
+  securityContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 32,
+  },
+
+  securityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+
+  securityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#27AE60',
+  },
+
+  securityText: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 18,
+  },
+
+  // Loading & Error
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 24,
+  },
+
+  retryButton: {
+    backgroundColor: '#E8622A',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+
+  retryButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

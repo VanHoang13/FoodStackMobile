@@ -13,13 +13,20 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
+import { menuItemApi, categoryApi, storage } from '../services/api';
 
 type MenuManagementScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MenuManagement'>;
 
 interface Props {
   navigation: MenuManagementScreenNavigationProp;
+  route: {
+    params?: {
+      newItem?: MenuItem;
+    };
+  };
 }
 
 interface MenuItem {
@@ -38,7 +45,7 @@ interface Category {
   items: MenuItem[];
 }
 
-const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
+const MenuManagementScreen: React.FC<Props> = ({ navigation, route }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -49,14 +56,136 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
       duration: 600,
       useNativeDriver: true,
     }).start();
-
-    loadMenuData();
   }, []);
+
+  // Refresh menu when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 MenuManagementScreen focused - reloading menu data');
+      
+      // Check if there's a new item from AddMenuItem screen
+      if (route.params?.newItem) {
+        console.log('➕ New item received from AddMenuItem:', route.params.newItem);
+        addNewItemToCategories(route.params.newItem);
+        // Clear the param to avoid re-adding
+        navigation.setParams({ newItem: undefined });
+      } else {
+        loadMenuData();
+      }
+    }, [route.params?.newItem])
+  );
+
+  const addNewItemToCategories = (newItem: MenuItem) => {
+    setCategories(prev => {
+      const updatedCategories = [...prev];
+      const categoryIndex = updatedCategories.findIndex(cat => cat.id === newItem.category);
+      
+      if (categoryIndex >= 0) {
+        // Add to existing category
+        updatedCategories[categoryIndex] = {
+          ...updatedCategories[categoryIndex],
+          items: [newItem, ...updatedCategories[categoryIndex].items]
+        };
+      } else {
+        // Create new category if not found
+        const categoryName = categories.find(c => c.id === newItem.category)?.name || 'Khác';
+        updatedCategories.push({
+          id: newItem.category,
+          name: categoryName,
+          items: [newItem]
+        });
+      }
+      
+      console.log('✅ Added new item to categories locally');
+      return updatedCategories;
+    });
+  };
 
   const loadMenuData = async () => {
     try {
-      // TODO: Implement API call to get menu data
-      // Mock data for now
+      console.log('🍽️ Loading menu data...');
+      
+      // Try to get menu data from API
+      try {
+        // First get categories
+        console.log('📂 Fetching categories...');
+        const categoriesResponse = await categoryApi.getCategories();
+        console.log('📂 Categories response:', categoriesResponse);
+        
+        if (categoriesResponse.success && categoriesResponse.data) {
+          console.log('✅ Got categories:', categoriesResponse.data.length);
+          
+          // For each category, get menu items
+          const categoriesWithItems = await Promise.all(
+            categoriesResponse.data.map(async (category: any) => {
+              try {
+                console.log(`🔍 Searching items for category: ${category.name} (ID: ${category.id})`);
+                const itemsResponse = await menuItemApi.searchMenuItems({
+                  category: category.id,
+                  limit: 50
+                });
+                
+                console.log(`📋 Items response for ${category.name}:`, itemsResponse);
+                
+                const items = itemsResponse.success ? (itemsResponse.data?.items || itemsResponse.data || []) : [];
+                console.log(`📋 Found ${items.length} items for ${category.name}`);
+                
+                return {
+                  id: category.id,
+                  name: category.name,
+                  items: items
+                };
+              } catch (error: any) {
+                console.error(`❌ Error loading items for category ${category.name}:`, error);
+                return {
+                  id: category.id,
+                  name: category.name,
+                  items: []
+                };
+              }
+            })
+          );
+          
+          console.log('✅ Final categories with items:', categoriesWithItems);
+          
+          // Check for locally stored items and merge them
+          try {
+            const localItems = await storage.getItem('temp_menu_items');
+            if (localItems) {
+              const parsedItems = JSON.parse(localItems);
+              console.log('💾 Found local items:', parsedItems);
+              
+              // Merge local items into categories
+              parsedItems.forEach((localItem: any) => {
+                const categoryIndex = categoriesWithItems.findIndex(cat => cat.id === localItem.category);
+                if (categoryIndex >= 0) {
+                  // Check if item already exists (avoid duplicates)
+                  const existsInAPI = categoriesWithItems[categoryIndex].items.some((item: any) => 
+                    item.name === localItem.name && Math.abs(item.price - localItem.price) < 1
+                  );
+                  
+                  if (!existsInAPI) {
+                    console.log('➕ Adding local item to category:', localItem.name);
+                    categoriesWithItems[categoryIndex].items.push(localItem);
+                  }
+                }
+              });
+            }
+          } catch (storageError: any) {
+            console.error('❌ Error reading local items:', storageError);
+          }
+          
+          setCategories(categoriesWithItems);
+          return;
+        } else {
+          console.log('⚠️ Categories API returned no data or failed');
+        }
+      } catch (apiError: any) {
+        console.error('❌ API Error loading menu:', apiError);
+      }
+      
+      // Fallback to mock data if API fails
+      console.log('⚠️ Using mock menu data');
       setCategories([
         {
           id: '1',
@@ -69,6 +198,7 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
               description: 'Phở bò truyền thống với nước dùng đậm đà',
               category: 'Món chính',
               available: true,
+              image_url: 'https://via.placeholder.com/200x150?text=Phở+Bò',
             },
             {
               id: '2',
@@ -77,6 +207,7 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
               description: 'Cơm tấm sườn nướng, chả, bì',
               category: 'Món chính',
               available: true,
+              image_url: 'https://via.placeholder.com/200x150?text=Cơm+Tấm',
             },
           ],
         },
@@ -91,12 +222,15 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
               description: 'Cà phê đen đá truyền thống',
               category: 'Đồ uống',
               available: true,
+              image_url: 'https://via.placeholder.com/200x150?text=Cà+Phê',
             },
           ],
         },
       ]);
-    } catch (error) {
-      console.error('Error loading menu data:', error);
+    } catch (error: any) {
+      console.error('❌ Error loading menu data:', error);
+      // Set empty categories on error
+      setCategories([]);
     }
   };
 
@@ -114,10 +248,24 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Thêm',
-          onPress: (categoryName) => {
+          onPress: async (categoryName) => {
             if (categoryName && categoryName.trim()) {
-              // TODO: Implement API call to add category
-              console.log('Add category:', categoryName);
+              try {
+                console.log('🏷️ Creating category:', categoryName);
+                const response = await categoryApi.createCategory({
+                  name: categoryName.trim(),
+                });
+                
+                if (response.success) {
+                  Alert.alert('Thành công', 'Đã thêm danh mục mới');
+                  await loadMenuData(); // Reload data
+                } else {
+                  Alert.alert('Lỗi', response.message || 'Không thể thêm danh mục');
+                }
+              } catch (error: any) {
+                console.error('❌ Error creating category:', error);
+                Alert.alert('Lỗi', 'Không thể thêm danh mục. Vui lòng thử lại.');
+              }
             }
           },
         },
@@ -136,16 +284,23 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleToggleAvailability = async (itemId: string, available: boolean) => {
     try {
-      // TODO: Implement API call to toggle availability
-      setCategories(prev =>
-        prev.map(category => ({
-          ...category,
-          items: category.items.map(item =>
-            item.id === itemId ? { ...item, available } : item
-          ),
-        }))
-      );
-    } catch (error) {
+      console.log('🔄 Toggling availability:', itemId, available);
+      const response = await menuItemApi.updateMenuItemAvailability(itemId, available);
+      
+      if (response.success) {
+        setCategories(prev =>
+          prev.map(category => ({
+            ...category,
+            items: category.items.map(item =>
+              item.id === itemId ? { ...item, available } : item
+            ),
+          }))
+        );
+      } else {
+        Alert.alert('Lỗi', response.message || 'Không thể cập nhật trạng thái món ăn');
+      }
+    } catch (error: any) {
+      console.error('❌ Error toggling availability:', error);
       Alert.alert('Lỗi', 'Không thể cập nhật trạng thái món ăn');
     }
   };
@@ -161,14 +316,22 @@ const MenuManagementScreen: React.FC<Props> = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // TODO: Implement API call to delete item
-              setCategories(prev =>
-                prev.map(category => ({
-                  ...category,
-                  items: category.items.filter(item => item.id !== itemId),
-                }))
-              );
-            } catch (error) {
+              console.log('🗑️ Deleting menu item:', itemId);
+              const response = await menuItemApi.deleteMenuItem(itemId);
+              
+              if (response.success) {
+                setCategories(prev =>
+                  prev.map(category => ({
+                    ...category,
+                    items: category.items.filter(item => item.id !== itemId),
+                  }))
+                );
+                Alert.alert('Thành công', 'Đã xóa món ăn');
+              } else {
+                Alert.alert('Lỗi', response.message || 'Không thể xóa món ăn');
+              }
+            } catch (error: any) {
+              console.error('❌ Error deleting menu item:', error);
               Alert.alert('Lỗi', 'Không thể xóa món ăn');
             }
           },

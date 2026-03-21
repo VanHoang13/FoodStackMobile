@@ -17,7 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { RootStackParamList, TableInfo, MenuData, MenuItem, Category } from '../types';
 import { publicApi, storage, branchApi } from '../services/api';
-import { useCartContext } from '../context/CartContext';
+import { useCartContext } from '../contexts/CartContext';
+import { useCart } from '../contexts/CartContext';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
 
@@ -43,8 +44,15 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
   const [searchQuery, setSearchQuery] = useState('');
   
   // Use cart context
-  const { getTotalItems } = useCartContext();
+  const { getTotalItems, setTableInfo } = useCart();
   const cartCount = getTotalItems();
+
+  // Set table info in cart when component mounts
+  useEffect(() => {
+    if (tableInfo) {
+      setTableInfo(tableInfo, sessionToken);
+    }
+  }, [tableInfo, sessionToken, setTableInfo]);
 
   // Get branch ID from tableInfo or route params
   const currentBranchId = branchId || tableInfo?.branch?.id;
@@ -186,17 +194,33 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
             )}
           </View>
           
-          <TouchableOpacity
-            style={styles.cartButton}
-            onPress={handleCartPress}
-          >
-            <Icon name="cart" size={20} color="#fff" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.serviceButton}
+              onPress={() => navigation.navigate('ServiceRequest', { tableInfo })}
+            >
+              <Icon name="bell" size={18} color="#fff" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.feedbackButton}
+              onPress={() => navigation.navigate('Feedback', { tableInfo })}
+            >
+              <Icon name="star" size={18} color="#fff" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.cartButton}
+              onPress={handleCartPress}
+            >
+              <Icon name="cart" size={20} color="#fff" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -351,6 +375,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
+  },
+  
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  
+  serviceButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  feedbackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
   cartButton: {

@@ -34,4 +34,28 @@ function createAuthMiddleware(tokenService) {
   };
 }
 
-module.exports = { createAuthMiddleware };
+// Simple auth middleware for testing
+const auth = async (req, res, next) => {
+  try {
+    const header = req.headers.authorization || '';
+    const [type, token] = header.split(' ');
+
+    if (type !== 'Bearer' || !token) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // For testing, create a mock user
+    req.user = {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      role: 'OWNER',
+      restaurant_id: 'test-restaurant-id'
+    };
+    
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: err.message || 'Unauthorized' });
+  }
+};
+
+module.exports = { createAuthMiddleware, auth };

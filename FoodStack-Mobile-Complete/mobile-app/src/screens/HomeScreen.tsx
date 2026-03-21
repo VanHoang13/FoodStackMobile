@@ -41,10 +41,17 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           navigation.replace('AdminDashboard');
           return;
         case 'RESTAURANT_OWNER':
-        case 'MANAGER':
-        case 'STAFF':
-          console.log('🏪 Redirecting to Restaurant Dashboard');
+        case 'OWNER':
+          console.log('🏪 Redirecting to Restaurant Dashboard (Owner)');
           navigation.replace('RestaurantDashboard');
+          return;
+        case 'MANAGER':
+          console.log('👨‍💼 Redirecting to Restaurant Dashboard (Manager)');
+          navigation.replace('RestaurantDashboard');
+          return;
+        case 'STAFF':
+          console.log('👨‍🍳 Redirecting to Kitchen Display (Staff)');
+          navigation.replace('KitchenDisplay');
           return;
         case 'CUSTOMER':
         default:

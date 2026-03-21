@@ -23,6 +23,12 @@ import PaymentScreen from '../screens/PaymentScreen';
 import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import OffersScreen from '../screens/OffersScreen';
+import OrderTrackingScreen from '../screens/OrderTrackingScreen';
+import ServiceRequestScreen from '../screens/ServiceRequestScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
+import KitchenDisplayScreen from '../screens/KitchenDisplayScreen';
+import ReservationScreen from '../screens/ReservationScreen';
+import ServiceRequestsScreen from '../screens/ServiceRequestsScreen';
 import RestaurantDashboardScreen from '../screens/RestaurantDashboardScreen';
 import MenuManagementScreen from '../screens/MenuManagementScreen';
 import OrderManagementScreen from '../screens/OrderManagementScreen';
@@ -36,6 +42,8 @@ import AdminReportsScreen from '../screens/AdminReportsScreen';
 import AdminApprovalsScreen from '../screens/AdminApprovalsScreen';
 import AdminSettingsScreen from '../screens/AdminSettingsScreen';
 import APITestScreen from '../screens/APITestScreen';
+import AddMenuItemScreen from '../screens/AddMenuItemScreen';
+import EditMenuItemScreen from '../screens/EditMenuItemScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -172,13 +180,23 @@ const AppNavigator: React.FC = () => {
           component={CartScreen}
           options={{
             title: 'Giỏ hàng',
+            headerShown: false,
           }}
         />
         <Stack.Screen
-          name="OrderStatus"
-          component={OrderStatusScreen}
+          name="OrderTracking"
+          component={OrderTrackingScreen}
           options={{
-            title: 'Trạng thái đơn hàng',
+            title: 'Theo dõi đơn hàng',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ServiceRequest"
+          component={ServiceRequestScreen}
+          options={{
+            title: 'Yêu cầu dịch vụ',
+            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -186,6 +204,30 @@ const AppNavigator: React.FC = () => {
           component={PaymentScreen}
           options={{
             title: 'Thanh toán',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Feedback"
+          component={FeedbackScreen}
+          options={{
+            title: 'Đánh giá',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Reservation"
+          component={ReservationScreen}
+          options={{
+            title: 'Đặt bàn',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="OrderStatus"
+          component={OrderStatusScreen}
+          options={{
+            title: 'Trạng thái đơn hàng',
           }}
         />
         <Stack.Screen
@@ -254,6 +296,22 @@ const AppNavigator: React.FC = () => {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="KitchenDisplay"
+          component={KitchenDisplayScreen}
+          options={{
+            title: 'Màn hình bếp',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ServiceRequests"
+          component={ServiceRequestsScreen}
+          options={{
+            title: 'Yêu cầu dịch vụ',
+            headerShown: false,
+          }}
+        />
 
         {/* Admin Screens */}
         <Stack.Screen
@@ -309,6 +367,24 @@ const AppNavigator: React.FC = () => {
           component={AdminSettingsScreen}
           options={{
             title: 'Cài đặt',
+            headerShown: false,
+          }}
+        />
+        
+        {/* Menu Management Screens */}
+        <Stack.Screen
+          name="AddMenuItem"
+          component={AddMenuItemScreen}
+          options={{
+            title: 'Thêm món ăn',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="EditMenuItem"
+          component={EditMenuItemScreen}
+          options={{
+            title: 'Chỉnh sửa món ăn',
             headerShown: false,
           }}
         />

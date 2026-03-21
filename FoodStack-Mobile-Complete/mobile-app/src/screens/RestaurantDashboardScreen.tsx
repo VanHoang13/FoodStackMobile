@@ -215,6 +215,14 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     navigation.navigate('RestaurantStatistics');
   };
 
+  const handleKitchenDisplay = () => {
+    navigation.navigate('KitchenDisplay');
+  };
+
+  const handleServiceRequests = () => {
+    navigation.navigate('ServiceRequests');
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       'Đăng xuất',
@@ -429,6 +437,21 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.actionCard}
+              onPress={handleKitchenDisplay}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#FF5722', '#D84315']}
+                style={styles.actionGradient}
+              >
+                <Icon name="chef-hat" size={32} color="#fff" />
+                <Text style={styles.actionTitle}>Màn hình bếp</Text>
+                <Text style={styles.actionSubtitle}>Quản lý đơn hàng bếp</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={handleStatistics}
               activeOpacity={0.7}
             >
@@ -444,11 +467,26 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={handleRestaurantSettings}
+              onPress={handleServiceRequests}
               activeOpacity={0.7}
             >
               <LinearGradient
                 colors={['#9C27B0', '#7B1FA2']}
+                style={styles.actionGradient}
+              >
+                <Icon name="bell" size={32} color="#fff" />
+                <Text style={styles.actionTitle}>Yêu cầu dịch vụ</Text>
+                <Text style={styles.actionSubtitle}>Xử lý yêu cầu khách</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={handleRestaurantSettings}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#607D8B', '#455A64']}
                 style={styles.actionGradient}
               >
                 <Icon name="settings" size={32} color="#fff" />

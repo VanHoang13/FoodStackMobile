@@ -57,50 +57,18 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     try {
       console.log('📊 Loading admin dashboard data...');
       
-      // Fetch real data from backend APIs using the API service
-      const [restaurantsRes, statisticsRes] = await Promise.allSettled([
-        restaurantApi.getMyRestaurants(),
-        restaurantApi.getMyStatistics(),
-      ]);
-
-      let totalRestaurants = 0;
-      let totalUsers = 5; // From our test users
-      let totalOrders = 0;
-      let totalRevenue = 0;
-      let activeOrders = 0;
-      let pendingApprovals = 0;
-      let revenueGrowth = 0;
-      let userGrowth = 0;
-
-      // Process restaurants data
-      if (restaurantsRes.status === 'fulfilled' && restaurantsRes.value.success) {
-        totalRestaurants = restaurantsRes.value.data.length;
-        console.log('✅ Restaurants loaded:', totalRestaurants);
-      } else {
-        console.log('⚠️ Restaurants API not available, using mock data');
-        totalRestaurants = 1; // From our test data
-      }
-
-      // Process statistics data
-      if (statisticsRes.status === 'fulfilled' && statisticsRes.value.success) {
-        const stats = statisticsRes.value.data;
-        totalOrders = stats.totalOrders || 0;
-        totalRevenue = stats.totalRevenue || 0;
-        activeOrders = stats.pendingOrders || 0;
-        pendingApprovals = stats.pendingApprovals || 0;
-        revenueGrowth = stats.revenueChange || 0;
-        userGrowth = stats.ordersChange || 0;
-        console.log('✅ Statistics loaded:', stats);
-      } else {
-        console.log('⚠️ Statistics API not available, using mock data');
-        // Use some mock data for demo
-        totalOrders = 25;
-        totalRevenue = 1250000;
-        activeOrders = 3;
-        pendingApprovals = 1;
-        revenueGrowth = 15.2;
-        userGrowth = 8.5;
-      }
+      // For admin, we need different APIs - use mock data for now since admin APIs aren't implemented
+      console.log('⚠️ Using mock data for admin dashboard');
+      
+      // Mock admin data based on existing database
+      const totalRestaurants = 3; // From our database
+      const totalUsers = 5; // From test users
+      const totalOrders = 25;
+      const totalRevenue = 1250000;
+      const activeOrders = 3;
+      const pendingApprovals = 1;
+      const revenueGrowth = 15.2;
+      const userGrowth = 8.5;
 
       setStats({
         totalRestaurants,
