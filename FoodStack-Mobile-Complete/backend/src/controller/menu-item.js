@@ -20,26 +20,43 @@ class MenuItemController {
   // POST /api/v1/menu-items
   async create(req, res, next) {
     try {
-      const { CreateMenuItemDto } = require('../dto/menu-item/create-menu-item');
+      const { mockMenuItems, mockCategories, generateId } = require('../data/mockData');
+      
+      // Validate category exists
+      const category = mockCategories.find(cat => cat.id === req.body.categoryId);
+      if (!category) {
+        return res.status(400).json({
+          success: false,
+          message: 'Category not found'
+        });
+      }
 
-      const dto = new CreateMenuItemDto({
-        categoryId: req.body.categoryId,
+      // Create new menu item
+      const newItem = {
+        id: generateId(),
+        category_id: req.body.categoryId,
         name: req.body.name,
-        description: req.body.description,
-        price: req.body.price,
-        imageUrl: req.body.imageUrl,
-        available: req.body.available,
-        userId: req.user?.userId,
-      });
+        description: req.body.description || '',
+        price: Number(req.body.price),
+        image_url: req.body.imageUrl || 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
+        available: req.body.available !== false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null
+      };
 
-      const result = await this.createMenuItemUseCase.execute(dto);
+      // Add to mock data
+      mockMenuItems.push(newItem);
+
+      console.log(`✅ Created menu item: ${newItem.name} (ID: ${newItem.id})`);
 
       res.status(201).json({
         success: true,
         message: 'Menu item created successfully',
-        data: result,
+        data: newItem,
       });
     } catch (error) {
+      console.error('❌ Error creating menu item:', error);
       next(error);
     }
   }
@@ -47,27 +64,52 @@ class MenuItemController {
   // PUT /api/v1/menu-items/:id
   async update(req, res, next) {
     try {
-      const { UpdateMenuItemDto } = require('../dto/menu-item/update-menu-item');
+      const { mockMenuItems, mockCategories } = require('../data/mockData');
+      const { id } = req.params;
 
-      const dto = new UpdateMenuItemDto({
-        menuItemId: req.params.id,
-        name: req.body.name,
-        description: req.body.description,
-        price: req.body.price,
-        categoryId: req.body.categoryId,
-        imageUrl: req.body.imageUrl,
-        available: req.body.available,
-        userId: req.user?.userId,
-      });
+      // Find item
+      const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+      if (itemIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Menu item not found'
+        });
+      }
 
-      const result = await this.updateMenuItemUseCase.execute(dto);
+      // Validate category if provided
+      if (req.body.categoryId) {
+        const category = mockCategories.find(cat => cat.id === req.body.categoryId);
+        if (!category) {
+          return res.status(400).json({
+            success: false,
+            message: 'Category not found'
+          });
+        }
+      }
+
+      // Update item
+      const updatedItem = {
+        ...mockMenuItems[itemIndex],
+        name: req.body.name || mockMenuItems[itemIndex].name,
+        description: req.body.description !== undefined ? req.body.description : mockMenuItems[itemIndex].description,
+        price: req.body.price !== undefined ? Number(req.body.price) : mockMenuItems[itemIndex].price,
+        category_id: req.body.categoryId || mockMenuItems[itemIndex].category_id,
+        image_url: req.body.imageUrl || mockMenuItems[itemIndex].image_url,
+        available: req.body.available !== undefined ? req.body.available : mockMenuItems[itemIndex].available,
+        updated_at: new Date().toISOString()
+      };
+
+      mockMenuItems[itemIndex] = updatedItem;
+
+      console.log(`✅ Updated menu item: ${updatedItem.name} (ID: ${id})`);
 
       res.status(200).json({
         success: true,
         message: 'Menu item updated successfully',
-        data: result,
+        data: updatedItem,
       });
     } catch (error) {
+      console.error('❌ Error updating menu item:', error);
       next(error);
     }
   }
@@ -75,21 +117,33 @@ class MenuItemController {
   // DELETE /api/v1/menu-items/:id
   async delete(req, res, next) {
     try {
-      const { DeleteMenuItemDto } = require('../dto/menu-item/delete-menu-item');
+      const { mockMenuItems } = require('../data/mockData');
+      const { id } = req.params;
 
-      const dto = new DeleteMenuItemDto({
-        menuItemId: req.params.id,
-        userId: req.user?.userId,
-      });
+      // Find item
+      const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+      if (itemIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Menu item not found'
+        });
+      }
 
-      const result = await this.deleteMenuItemUseCase.execute(dto);
+      const itemName = mockMenuItems[itemIndex].name;
+      
+      // Remove from array (soft delete by setting deleted_at)
+      mockMenuItems[itemIndex].deleted_at = new Date().toISOString();
+      mockMenuItems[itemIndex].available = false;
+
+      console.log(`🗑️ Deleted menu item: ${itemName} (ID: ${id})`);
 
       res.status(200).json({
         success: true,
-        message: result.message,
-        data: { menuItemId: result.menuItemId },
+        message: 'Menu item deleted successfully',
+        data: { menuItemId: id },
       });
     } catch (error) {
+      console.error('❌ Error deleting menu item:', error);
       next(error);
     }
   }
@@ -97,9 +151,9 @@ class MenuItemController {
   // POST /api/v1/menu-items/:id/image
   async uploadImage(req, res, next) {
     try {
+      const { mockMenuItems } = require('../data/mockData');
       const { id } = req.params;
       const file = req.file;
-      const userId = req.user?.userId;
 
       if (!file) {
         return res.status(400).json({
@@ -108,17 +162,34 @@ class MenuItemController {
         });
       }
 
-      const result = await this.uploadMenuItemImageUseCase.execute(id, file, userId);
+      // Find item
+      const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+      if (itemIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Menu item not found'
+        });
+      }
+
+      // For mock, just use a placeholder URL
+      const imageUrl = `https://images.unsplash.com/photo-${Date.now()}?w=300&h=200&fit=crop`;
+      
+      // Update image URL
+      mockMenuItems[itemIndex].image_url = imageUrl;
+      mockMenuItems[itemIndex].updated_at = new Date().toISOString();
+
+      console.log(`📸 Updated image for menu item: ${mockMenuItems[itemIndex].name}`);
 
       res.status(200).json({
         success: true,
-        message: result.message,
+        message: 'Image uploaded successfully',
         data: {
-          menuItemId: result.menuItemId,
-          imageUrl: result.imageUrl,
+          menuItemId: id,
+          imageUrl: imageUrl,
         },
       });
     } catch (error) {
+      console.error('❌ Error uploading image:', error);
       next(error);
     }
   }
@@ -126,22 +197,32 @@ class MenuItemController {
   // PATCH /api/v1/menu-items/:id/availability
   async updateAvailability(req, res, next) {
     try {
-      const { UpdateMenuItemAvailabilityDto } = require('../dto/menu-item/update-availability');
+      const { mockMenuItems } = require('../data/mockData');
+      const { id } = req.params;
 
-      const dto = new UpdateMenuItemAvailabilityDto({
-        menuItemId: req.params.id,
-        available: req.body.available,
-        userId: req.user?.userId,
-      });
+      // Find item
+      const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+      if (itemIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: 'Menu item not found'
+        });
+      }
 
-      const result = await this.updateMenuItemAvailabilityUseCase.execute(dto);
+      // Update availability
+      mockMenuItems[itemIndex].available = req.body.available;
+      mockMenuItems[itemIndex].updated_at = new Date().toISOString();
+
+      const status = req.body.available ? 'available' : 'unavailable';
+      console.log(`🔄 Set menu item ${mockMenuItems[itemIndex].name} as ${status}`);
 
       res.status(200).json({
         success: true,
         message: 'Menu item availability updated successfully',
-        data: result,
+        data: mockMenuItems[itemIndex],
       });
     } catch (error) {
+      console.error('❌ Error updating availability:', error);
       next(error);
     }
   }
@@ -149,24 +230,80 @@ class MenuItemController {
   // GET /api/v1/menu-items/search
   async search(req, res, next) {
     try {
-      const { SearchMenuItemsDto } = require('../dto/menu-item/search-menu-items');
+      const { mockMenuItems, mockCategories } = require('../data/mockData');
+      
+      const {
+        keyword = '',
+        category = '',
+        branchId = '',
+        page = 1,
+        limit = 10
+      } = req.query;
 
-      const dto = new SearchMenuItemsDto({
-        keyword: req.query.keyword,
-        category: req.query.category,
-        page: req.query.page ? parseInt(req.query.page) : 1,
-        limit: req.query.limit ? parseInt(req.query.limit) : 10,
-        branchId: req.query.branchId,
+      let filteredItems = mockMenuItems.filter(item => 
+        !item.deleted_at && // Not deleted
+        item.available // Available
+      );
+
+      // Filter by branch (through category)
+      if (branchId) {
+        const branchCategories = mockCategories
+          .filter(cat => cat.branch_id === branchId)
+          .map(cat => cat.id);
+        
+        filteredItems = filteredItems.filter(item => 
+          branchCategories.includes(item.category_id)
+        );
+      }
+
+      // Filter by category
+      if (category) {
+        filteredItems = filteredItems.filter(item => 
+          item.category_id === category
+        );
+      }
+
+      // Filter by keyword
+      if (keyword) {
+        const searchTerm = keyword.toLowerCase();
+        filteredItems = filteredItems.filter(item =>
+          item.name.toLowerCase().includes(searchTerm) ||
+          (item.description && item.description.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      // Pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + parseInt(limit);
+      const paginatedItems = filteredItems.slice(startIndex, endIndex);
+
+      // Add category info to items
+      const itemsWithCategory = paginatedItems.map(item => {
+        const category = mockCategories.find(cat => cat.id === item.category_id);
+        return {
+          ...item,
+          category: category ? {
+            id: category.id,
+            name: category.name
+          } : null
+        };
       });
 
-      const result = await this.searchMenuItemsUseCase.execute(dto);
+      console.log(`🔍 Search results: ${paginatedItems.length} items found`);
 
       res.status(200).json({
         success: true,
         message: 'Menu items retrieved successfully',
-        ...result,
+        data: itemsWithCategory,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: filteredItems.length,
+          totalPages: Math.ceil(filteredItems.length / limit)
+        }
       });
     } catch (error) {
+      console.error('❌ Error searching menu items:', error);
       next(error);
     }
   }

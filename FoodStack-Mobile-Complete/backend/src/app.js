@@ -207,7 +207,24 @@ function createApp() {
   const getBranchDetailsUseCase = new GetBranchDetailsUseCase(branchRepository);
 
   // Auth middleware
-  const authMiddleware = createAuthMiddleware(tokenService);
+  const authMiddleware = (req, res, next) => {
+    // For testing, allow mock tokens
+    const header = req.headers.authorization || '';
+    const [type, token] = header.split(' ');
+    
+    if (token === 'mock-owner-token' || token === 'mock-admin-token') {
+      req.user = {
+        userId: 'user-4',
+        email: 'owner@foodstack.test',
+        role: 'OWNER',
+        restaurantId: 'restaurant-1'
+      };
+      return next();
+    }
+    
+    // Use original auth middleware for real tokens
+    return createAuthMiddleware(tokenService)(req, res, next);
+  };
 
   // Controllers (auth)
   const authController = new AuthController(

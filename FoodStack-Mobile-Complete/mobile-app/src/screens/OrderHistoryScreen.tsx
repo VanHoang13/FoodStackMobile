@@ -25,7 +25,7 @@ interface Props {
 }
 
 const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState('Tất cả');
   const [fadeAnim] = useState(new Animated.Value(0));
 
   React.useEffect(() => {
@@ -36,13 +36,13 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
     }).start();
   }, []);
 
-  const filters = ['All', 'Active', 'Past', 'Cancelled'];
+  const filters = ['Tất cả', 'Đang xử lý', 'Hoàn thành', 'Đã hủy'];
 
   const filteredOrders = ORDER_HISTORY.filter(order => {
-    if (filter === 'All') return true;
-    if (filter === 'Active') return order.status === 'PROCESSING';
-    if (filter === 'Past') return order.status === 'SERVED' || order.status === 'PAID';
-    if (filter === 'Cancelled') return order.status === 'CANCELLED';
+    if (filter === 'Tất cả') return true;
+    if (filter === 'Đang xử lý') return order.status === 'PROCESSING';
+    if (filter === 'Hoàn thành') return order.status === 'SERVED' || order.status === 'PAID';
+    if (filter === 'Đã hủy') return order.status === 'CANCELLED';
     return true;
   });
 
@@ -53,15 +53,15 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
   const getStatusBadgeStyle = (status: string) => {
     switch (status) {
       case 'SERVED':
-        return { backgroundColor: '#E8F5E9', color: '#2E7D32' };
+        return { backgroundColor: '#E8F5E9', color: '#2E7D32', text: 'Đã phục vụ' };
       case 'PROCESSING':
-        return { backgroundColor: '#FFF3E0', color: '#E65100' };
+        return { backgroundColor: '#FFF3E0', color: '#E65100', text: 'Đang chuẩn bị' };
       case 'PAID':
-        return { backgroundColor: '#E3F2FD', color: '#1565C0' };
+        return { backgroundColor: '#E3F2FD', color: '#1565C0', text: 'Đã thanh toán' };
       case 'CANCELLED':
-        return { backgroundColor: '#FFEBEE', color: '#C62828' };
+        return { backgroundColor: '#FFEBEE', color: '#C62828', text: 'Đã hủy' };
       default:
-        return { backgroundColor: '#FFF9C4', color: '#F57F17' };
+        return { backgroundColor: '#FFF9C4', color: '#F57F17', text: 'Chờ xử lý' };
     }
   };
 
@@ -82,8 +82,8 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
               <Icon name="back" size={20} color="#fff" />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Order History</Text>
-              <Text style={styles.headerSubtitle}>Track your orders</Text>
+              <Text style={styles.headerTitle}>Lịch Sử Đơn Hàng</Text>
+              <Text style={styles.headerSubtitle}>Theo dõi đơn hàng của bạn</Text>
             </View>
             <View style={styles.backButton} />
           </View>
@@ -114,11 +114,11 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
           {filteredOrders.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateIcon}>📋</Text>
-              <Text style={styles.emptyStateTitle}>No orders found</Text>
+              <Text style={styles.emptyStateTitle}>Không tìm thấy đơn hàng</Text>
               <Text style={styles.emptyStateDescription}>
-                {filter === 'All' 
-                  ? 'You haven\'t placed any orders yet'
-                  : `No orders found in "${filter}" category`
+                {filter === 'Tất cả' 
+                  ? 'Bạn chưa đặt đơn hàng nào'
+                  : `Không có đơn hàng nào trong danh mục "${filter}"`
                 }
               </Text>
               <TouchableOpacity style={styles.browseButton} activeOpacity={0.8}>
@@ -126,13 +126,13 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
                   colors={['#FF7A30', '#E8622A']}
                   style={styles.browseButtonGradient}
                 >
-                  <Text style={styles.browseButtonText}>Browse Restaurants</Text>
+                  <Text style={styles.browseButtonText}>Duyệt nhà hàng</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.ordersSection}>
-              <Text style={styles.sectionTitle}>Recent Orders</Text>
+              <Text style={styles.sectionTitle}>Đơn hàng gần đây</Text>
               {filteredOrders.map((order, index) => {
                 const statusStyle = getStatusBadgeStyle(order.status);
                 
@@ -161,14 +161,14 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
                             <Text style={styles.restaurantName}>{order.restaurant}</Text>
                             <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
                               <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>
-                                {order.status}
+                                {statusStyle.text}
                               </Text>
                             </View>
                           </View>
                           <Text style={styles.orderDate}>{order.date} • {order.time}</Text>
                           <View style={styles.orderMeta}>
-                            <Text style={styles.itemsCount}>{order.items} item{order.items > 1 ? 's' : ''}</Text>
-                            <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
+                            <Text style={styles.itemsCount}>{order.items} món</Text>
+                            <Text style={styles.orderTotal}>{order.total.toLocaleString('vi-VN')}đ</Text>
                           </View>
                         </View>
                       </View>
@@ -182,18 +182,18 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
                           style={styles.trackButtonGradient}
                         >
                           <Icon name="track" size={16} color="#fff" />
-                          <Text style={styles.trackButtonText}>Track Order</Text>
+                          <Text style={styles.trackButtonText}>Theo dõi đơn hàng</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.actionButtons}>
                         <TouchableOpacity style={styles.reorderButton} activeOpacity={0.8}>
                           <Icon name="reorder" size={14} color="#E8622A" />
-                          <Text style={styles.reorderButtonText}>Reorder</Text>
+                          <Text style={styles.reorderButtonText}>Đặt lại</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.receiptButton} activeOpacity={0.8}>
                           <Icon name="receipt" size={14} color="#666" />
-                          <Text style={styles.receiptButtonText}>Receipt</Text>
+                          <Text style={styles.receiptButtonText}>Hóa đơn</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -213,12 +213,12 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
           activeOpacity={0.8}
         >
           <Icon name="home" size={22} color="#aaa" />
-          <Text style={styles.navText}>Home</Text>
+          <Text style={styles.navText}>Trang chủ</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={[styles.navItem, styles.activeNavItem]} activeOpacity={0.8}>
           <Icon name="orders" size={22} color="#E8622A" />
-          <Text style={[styles.navText, styles.activeNavText]}>Orders</Text>
+          <Text style={[styles.navText, styles.activeNavText]}>Đơn hàng</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -227,7 +227,7 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
           activeOpacity={0.8}
         >
           <Icon name="offers" size={22} color="#aaa" />
-          <Text style={styles.navText}>Offers</Text>
+          <Text style={styles.navText}>Ưu đãi</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -236,7 +236,7 @@ const OrderHistoryScreen: React.FC<Props> = ({ navigation }) => {
           activeOpacity={0.8}
         >
           <Icon name="profile" size={22} color="#aaa" />
-          <Text style={styles.navText}>Profile</Text>
+          <Text style={styles.navText}>Hồ sơ</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

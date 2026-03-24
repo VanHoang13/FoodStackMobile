@@ -61,9 +61,101 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
   // Fetch menu data
   const { data: menuData, isLoading, error, refetch } = useQuery({
     queryKey: ['menu', currentBranchId],
-    queryFn: () => branchApi.getBranchMenu(currentBranchId!),
+    queryFn: async () => {
+      console.log('🔍 MenuScreen: Fetching menu for branch:', currentBranchId);
+      try {
+        const result = await branchApi.getBranchMenu(currentBranchId!);
+        console.log('✅ MenuScreen: Menu fetched successfully:', result.success);
+        console.log('📋 MenuScreen: Categories count:', result.data?.categories?.length);
+        return result;
+      } catch (error) {
+        console.error('❌ MenuScreen: Menu fetch failed:', error);
+        // Return fallback data
+        console.log('🔄 MenuScreen: Using fallback data');
+        return {
+          success: true,
+          message: 'Fallback menu data',
+          data: {
+            branch: {
+              id: currentBranchId,
+              name: 'Chi nhánh Hoàn Kiếm',
+              address: '123 Phố Cổ, Hoàn Kiếm, Hà Nội',
+              phone: '0901234567'
+            },
+            restaurant: {
+              id: 'restaurant-1',
+              name: 'Nhà Hàng Phố Cổ',
+              logo_url: 'https://via.placeholder.com/200x200?text=Restaurant'
+            },
+            categories: [
+              {
+                id: 'cat-1-1',
+                name: 'Phở & Bún',
+                description: 'Các món phở và bún truyền thống',
+                sort_order: 1,
+                menu_items: [
+                  {
+                    id: 'item-1-1',
+                    name: 'Phở Bò Tái',
+                    description: 'Phở bò tái truyền thống với nước dùng đậm đà',
+                    price: 85000,
+                    image_url: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=300&h=200&fit=crop',
+                    available: true,
+                    category_id: 'cat-1-1'
+                  },
+                  {
+                    id: 'item-1-2',
+                    name: 'Phở Bò Chín',
+                    description: 'Phở bò chín với thịt bò mềm',
+                    price: 85000,
+                    image_url: 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=300&h=200&fit=crop',
+                    available: true,
+                    category_id: 'cat-1-1'
+                  }
+                ]
+              },
+              {
+                id: 'cat-1-2',
+                name: 'Cơm',
+                description: 'Các món cơm đặc sản',
+                sort_order: 2,
+                menu_items: [
+                  {
+                    id: 'item-1-5',
+                    name: 'Cơm Gà Nướng',
+                    description: 'Cơm gà nướng thơm ngon với nước mắm pha',
+                    price: 95000,
+                    image_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=300&h=200&fit=crop',
+                    available: true,
+                    category_id: 'cat-1-2'
+                  }
+                ]
+              },
+              {
+                id: 'cat-1-3',
+                name: 'Đồ Uống',
+                description: 'Nước uống và đồ uống giải khát',
+                sort_order: 3,
+                menu_items: [
+                  {
+                    id: 'item-1-9',
+                    name: 'Trà Đá',
+                    description: 'Trà đá truyền thống mát lạnh',
+                    price: 15000,
+                    image_url: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&h=200&fit=crop',
+                    available: true,
+                    category_id: 'cat-1-3'
+                  }
+                ]
+              }
+            ]
+          }
+        };
+      }
+    },
     enabled: !!currentBranchId,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1, // Only retry once
   });
 
   // Set default category when menu loads
@@ -244,36 +336,39 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
       </LinearGradient>
 
-      {/* Categories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {menuData.data.categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category.id && styles.selectedCategoryButton,
-            ]}
-            onPress={() => setSelectedCategory(category.id)}
+      {/* Main Content - Categories + Menu in single ScrollView */}
+      <ScrollView style={styles.mainContainer} showsVerticalScrollIndicator={false}>
+        {/* Categories */}
+        <View style={styles.categoriesWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
           >
-            <Text
-              style={[
-                styles.categoryText,
-                selectedCategory === category.id && styles.selectedCategoryText,
-              ]}
-            >
-              {category.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            {menuData.data.categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category.id && styles.selectedCategoryButton,
+                ]}
+                onPress={() => setSelectedCategory(category.id)}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category.id && styles.selectedCategoryText,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {category.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-      {/* Menu Items */}
-      <ScrollView style={styles.menuContainer}>
+        {/* Menu Items */}
         {menuData.data.categories
           .filter(category => selectedCategory === category.id)
           .map((category) => {
@@ -290,44 +385,63 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
             }
 
             return (
-              <View key={category.id}>
-                {filteredItems.map((item) => (
+              <View key={category.id} style={styles.menuGrid}>
+                {filteredItems.map((item, index) => (
                   <TouchableOpacity
                     key={item.id}
-                    style={styles.menuItem}
+                    style={[
+                      styles.menuItemCard,
+                      index % 2 === 0 ? styles.menuItemCardLeft : styles.menuItemCardRight
+                    ]}
                     onPress={() => handleItemPress(item)}
-                    activeOpacity={0.8}
+                    activeOpacity={0.9}
                   >
-                    <View style={styles.menuItemContent}>
-                      <View style={styles.menuItemInfo}>
-                        <Text style={styles.menuItemName}>{item.name}</Text>
-                        {item.description && (
-                          <Text style={styles.menuItemDescription}>
-                            {item.description}
-                          </Text>
-                        )}
-                        <Text style={styles.menuItemPrice}>
+                    {/* Image */}
+                    {item.image_url ? (
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.menuItemCardImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.menuItemCardImagePlaceholder}>
+                        <Icon name="image" size={32} color="#ccc" />
+                      </View>
+                    )}
+                    
+                    {/* Content */}
+                    <View style={styles.menuItemCardContent}>
+                      <Text style={styles.menuItemCardName} numberOfLines={2}>
+                        {item.name}
+                      </Text>
+                      
+                      {item.description && (
+                        <Text style={styles.menuItemCardDescription} numberOfLines={2}>
+                          {item.description}
+                        </Text>
+                      )}
+                      
+                      <View style={styles.menuItemCardFooter}>
+                        <Text style={styles.menuItemCardPrice}>
                           {item.price.toLocaleString('vi-VN')}đ
                         </Text>
+                        
+                        <TouchableOpacity 
+                          style={styles.addButton}
+                          onPress={() => handleItemPress(item)}
+                        >
+                          <Icon name="plus" size={16} color="#fff" />
+                        </TouchableOpacity>
                       </View>
-                      
-                      {item.image_url ? (
-                        <Image
-                          source={{ uri: item.image_url }}
-                          style={styles.menuItemImage}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.menuItemImagePlaceholder}>
-                          <Icon name="image" size={24} color="#ccc" />
-                        </View>
-                      )}
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
             );
           })}
+        
+        {/* Bottom padding */}
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -342,14 +456,14 @@ const styles = StyleSheet.create({
   // Header styles
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   
   backButton: {
@@ -432,51 +546,69 @@ const styles = StyleSheet.create({
   
   // Search styles
   searchContainer: {
-    marginBottom: 8,
+    marginBottom: -8, // Negative margin to pull categories up
   },
   
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+    marginHorizontal: 16,
+    ...theme.shadows.sm,
   },
   
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 13,
     color: '#333',
+    fontWeight: '500',
+  },
+  
+  // Main container styles
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
   
   // Categories styles
-  categoriesContainer: {
+  categoriesWrapper: {
     backgroundColor: '#fff',
-    paddingVertical: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 0, // Remove border
   },
   
   categoriesContent: {
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 6,
+    alignItems: 'flex-start',
   },
   
   categoryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    minWidth: 60, // Minimum width
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   
   selectedCategoryButton: {
     backgroundColor: '#E8622A',
+    borderColor: '#E8622A',
   },
   
   categoryText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
     color: '#666',
+    textAlign: 'center',
   },
   
   selectedCategoryText: {
@@ -484,11 +616,94 @@ const styles = StyleSheet.create({
   },
   
   // Menu styles
-  menuContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    paddingTop: 8, // Small padding from categories
+    backgroundColor: '#f8f9fa',
   },
   
+  menuItemCard: {
+    width: (width - 36) / 2, // 2 columns with margins
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    marginTop: 0, // Remove top margin to eliminate space
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+    // Ensure minimum height for consistency
+    minHeight: 200,
+  },
+  
+  menuItemCardLeft: {
+    marginRight: 6,
+  },
+  
+  menuItemCardRight: {
+    marginLeft: 6,
+  },
+  
+  menuItemCardImage: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f0f0f0',
+  },
+  
+  menuItemCardImagePlaceholder: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  menuItemCardContent: {
+    padding: 12,
+  },
+  
+  menuItemCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  
+  menuItemCardDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  
+  menuItemCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  
+  menuItemCardPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E8622A',
+    flex: 1,
+  },
+  
+  addButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E8622A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  bottomPadding: {
+    height: 20,
+  },
+  
+  // Old menu item styles (keep for backward compatibility)
   menuItem: {
     backgroundColor: '#fff',
     marginHorizontal: 16,

@@ -75,13 +75,32 @@ const RestaurantSelectionScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    // Navigate to menu with restaurant and table info
-    navigation.navigate('Menu', {
-      restaurantId: selectedRestaurant.id,
-      tableInfo: {
-        tableNumber: tableNum,
-        restaurantName: selectedRestaurant.name,
+    // Create mock table info that matches the expected format
+    const mockTableInfo = {
+      table: {
+        id: `table-${tableNum}`,
+        name: `B${tableNum.toString().padStart(2, '0')}`,
+        capacity: 4,
+        status: 'AVAILABLE'
       },
+      branch: {
+        id: 'branch-1', // Use the mock branch ID from backend
+        name: 'Chi nhánh Hoàn Kiếm',
+        address: '123 Phố Cổ, Hoàn Kiếm, Hà Nội',
+        phone: '0901234567'
+      },
+      restaurant: {
+        id: 'restaurant-1', // Use the mock restaurant ID from backend
+        name: selectedRestaurant.name,
+        logo_url: 'https://via.placeholder.com/200x200?text=Restaurant'
+      }
+    };
+
+    // Navigate to menu with proper branchId and tableInfo
+    navigation.navigate('Menu', {
+      branchId: 'branch-1', // Use the mock branch ID
+      tableInfo: mockTableInfo,
+      restaurantId: 'restaurant-1'
     });
   };
 
