@@ -141,156 +141,66 @@ class BranchController {
       
       console.log(`🔍 Getting menu for branch: ${branchId}`);
       
-      // Always use mock data
-      const mockMenuData = {
+      // Import mock data
+      const { mockCategories, mockMenuItems, mockBranches, mockRestaurants } = require('../data/mockData');
+      
+      // Find branch and restaurant
+      const branch = mockBranches.find(b => b.id === branchId);
+      const restaurant = branch ? mockRestaurants.find(r => r.id === branch.restaurant_id) : null;
+      
+      if (!branch) {
+        return res.status(404).json({
+          success: false,
+          message: 'Branch not found'
+        });
+      }
+
+      // Get categories for this branch and organize menu items
+      const branchCategories = mockCategories
+        .filter(cat => cat.branch_id === branchId)
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(category => {
+          const categoryItems = mockMenuItems
+            .filter(item => item.category_id === category.id && item.available)
+            .map(item => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              price: item.price,
+              image_url: item.image_url,
+              available: item.available
+            }));
+
+          return {
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            sort_order: category.sort_order,
+            menu_items: categoryItems
+          };
+        });
+
+      const menuData = {
         branch: {
-          id: branchId,
-          name: 'Chi nhánh Hoàn Kiếm',
-          address: '123 Phố Cổ, Hoàn Kiếm, Hà Nội',
-          phone: '0901234567'
+          id: branch.id,
+          name: branch.name,
+          address: branch.address,
+          phone: branch.phone
         },
         restaurant: {
-          id: 'restaurant-1',
-          name: 'Nhà Hàng Phố Cổ',
-          logo_url: 'https://via.placeholder.com/200x200?text=Pho+Co'
+          id: restaurant.id,
+          name: restaurant.name,
+          logo_url: restaurant.logo_url
         },
-        categories: [
-          {
-            id: 'cat-1-1',
-            name: 'Phở & Bún',
-            description: 'Các món phở và bún truyền thống',
-            sort_order: 1,
-            menu_items: [
-              {
-                id: 'item-1-1',
-                name: 'Phở Bò Tái',
-                description: 'Phở bò tái truyền thống với nước dùng đậm đà',
-                price: 85000,
-                image_url: 'https://via.placeholder.com/300x200?text=Pho+Bo+Tai',
-                available: true
-              },
-              {
-                id: 'item-1-2',
-                name: 'Phở Bò Chín',
-                description: 'Phở bò chín với thịt bò mềm',
-                price: 85000,
-                image_url: 'https://via.placeholder.com/300x200?text=Pho+Bo+Chin',
-                available: true
-              },
-              {
-                id: 'item-1-3',
-                name: 'Bún Bò Huế',
-                description: 'Bún bò Huế cay nồng đặc trưng',
-                price: 75000,
-                image_url: 'https://via.placeholder.com/300x200?text=Bun+Bo+Hue',
-                available: true
-              },
-              {
-                id: 'item-1-4',
-                name: 'Bún Chả Hà Nội',
-                description: 'Bún chả Hà Nội truyền thống',
-                price: 80000,
-                image_url: 'https://via.placeholder.com/300x200?text=Bun+Cha',
-                available: true
-              }
-            ]
-          },
-          {
-            id: 'cat-1-2',
-            name: 'Cơm',
-            description: 'Các món cơm đặc sản',
-            sort_order: 2,
-            menu_items: [
-              {
-                id: 'item-1-5',
-                name: 'Cơm Gà Nướng',
-                description: 'Cơm gà nướng thơm ngon với nước mắm pha',
-                price: 95000,
-                image_url: 'https://via.placeholder.com/300x200?text=Com+Ga+Nuong',
-                available: true
-              },
-              {
-                id: 'item-1-6',
-                name: 'Cơm Sườn Nướng',
-                description: 'Cơm sườn nướng BBQ đậm đà',
-                price: 105000,
-                image_url: 'https://via.placeholder.com/300x200?text=Com+Suon+Nuong',
-                available: true
-              },
-              {
-                id: 'item-1-7',
-                name: 'Cơm Chiên Dương Châu',
-                description: 'Cơm chiên Dương Châu với tôm và xúc xích',
-                price: 85000,
-                image_url: 'https://via.placeholder.com/300x200?text=Com+Chien',
-                available: true
-              }
-            ]
-          },
-          {
-            id: 'cat-1-3',
-            name: 'Đồ uống',
-            description: 'Nước uống và trà',
-            sort_order: 3,
-            menu_items: [
-              {
-                id: 'item-1-8',
-                name: 'Trà Đá',
-                description: 'Trà đá truyền thống',
-                price: 15000,
-                image_url: 'https://via.placeholder.com/300x200?text=Tra+Da',
-                available: true
-              },
-              {
-                id: 'item-1-9',
-                name: 'Nước Cam Tươi',
-                description: 'Nước cam tươi vắt',
-                price: 25000,
-                image_url: 'https://via.placeholder.com/300x200?text=Nuoc+Cam',
-                available: true
-              },
-              {
-                id: 'item-1-10',
-                name: 'Cà Phê Sữa Đá',
-                description: 'Cà phê sữa đá Việt Nam',
-                price: 30000,
-                image_url: 'https://via.placeholder.com/300x200?text=Ca+Phe+Sua',
-                available: true
-              }
-            ]
-          },
-          {
-            id: 'cat-1-4',
-            name: 'Tráng miệng',
-            description: 'Chè và bánh ngọt',
-            sort_order: 4,
-            menu_items: [
-              {
-                id: 'item-1-11',
-                name: 'Chè Ba Màu',
-                description: 'Chè ba màu truyền thống',
-                price: 35000,
-                image_url: 'https://via.placeholder.com/300x200?text=Che+Ba+Mau',
-                available: true
-              },
-              {
-                id: 'item-1-12',
-                name: 'Bánh Flan',
-                description: 'Bánh flan mềm mịn',
-                price: 25000,
-                image_url: 'https://via.placeholder.com/300x200?text=Banh+Flan',
-                available: true
-              }
-            ]
-          }
-        ]
+        categories: branchCategories
       };
 
-      console.log('📋 Returning mock menu data');
+      console.log(`📋 Returning menu with ${branchCategories.length} categories and ${mockMenuItems.length} total items`);
+      
       res.status(200).json({
         success: true,
-        message: 'Branch menu retrieved (mock data)',
-        data: mockMenuData,
+        message: 'Branch menu retrieved successfully',
+        data: menuData,
       });
     } catch (err) {
       console.error('❌ Error in getMenu:', err);

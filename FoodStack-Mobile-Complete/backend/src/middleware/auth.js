@@ -40,16 +40,27 @@ const auth = async (req, res, next) => {
     const header = req.headers.authorization || '';
     const [type, token] = header.split(' ');
 
+    // For testing, allow mock tokens
+    if (token === 'mock-owner-token' || token === 'mock-admin-token') {
+      req.user = {
+        userId: 'user-4', // Owner user from mock data
+        email: 'owner@foodstack.test',
+        role: 'OWNER',
+        restaurantId: 'restaurant-1'
+      };
+      return next();
+    }
+
     if (type !== 'Bearer' || !token) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
     // For testing, create a mock user
     req.user = {
-      id: 'test-user-id',
+      userId: 'test-user-id',
       email: 'test@example.com',
-      role: 'ADMIN', // Changed to ADMIN for admin routes
-      restaurant_id: 'test-restaurant-id'
+      role: 'OWNER', // Changed to OWNER for menu management
+      restaurantId: 'restaurant-1'
     };
     
     next();

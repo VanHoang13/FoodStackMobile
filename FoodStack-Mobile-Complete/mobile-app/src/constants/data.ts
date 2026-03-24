@@ -344,43 +344,77 @@ export const MENU_ITEMS = [
 export const ORDER_HISTORY = [
   { 
     id: "ORD-001", 
-    restaurant: "Burger King", 
-    restaurantEmoji: "🍔", 
-    date: "Oct 24, 2023", 
-    time: "12:45 PM", 
-    items: 2, 
-    total: 24.50, 
-    status: "SERVED" 
+    restaurant: "Nhà Hàng Phố Cổ", 
+    restaurantEmoji: "🍜", 
+    date: "Hôm nay", 
+    time: "12:45", 
+    items: 3, 
+    total: 245000, 
+    status: "SERVED",
+    orderItems: [
+      { name: "Phở Bò Tái", quantity: 1, price: 85000 },
+      { name: "Cơm Gà Nướng", quantity: 1, price: 95000 },
+      { name: "Trà Đá", quantity: 2, price: 15000 }
+    ]
   },
   { 
     id: "ORD-002", 
-    restaurant: "Pizza Hut", 
-    restaurantEmoji: "🍕", 
-    date: "Oct 24, 2023", 
-    time: "02:15 PM", 
-    items: 1, 
-    total: 18.99, 
-    status: "PROCESSING" 
+    restaurant: "Nhà Hàng Phố Cổ", 
+    restaurantEmoji: "🍜", 
+    date: "Hôm nay", 
+    time: "14:15", 
+    items: 2, 
+    total: 160000, 
+    status: "PROCESSING",
+    orderItems: [
+      { name: "Phở Bò Chín", quantity: 1, price: 85000 },
+      { name: "Bún Bò Huế", quantity: 1, price: 75000 }
+    ]
   },
   { 
     id: "ORD-003", 
-    restaurant: "Ichiraku Ramen", 
+    restaurant: "Nhà Hàng Phố Cổ", 
     restaurantEmoji: "🍜", 
-    date: "Oct 23, 2023", 
-    time: "08:30 PM", 
-    items: 3, 
-    total: 42.00, 
-    status: "PAID" 
+    date: "Hôm qua", 
+    time: "20:30", 
+    items: 4, 
+    total: 315000, 
+    status: "PAID",
+    orderItems: [
+      { name: "Cơm Sườn Nướng", quantity: 1, price: 105000 },
+      { name: "Bún Chả", quantity: 1, price: 70000 },
+      { name: "Cà Phê Sữa Đá", quantity: 1, price: 25000 },
+      { name: "Chè Ba Màu", quantity: 1, price: 30000 }
+    ]
   },
   { 
     id: "ORD-004", 
-    restaurant: "Salad Stop", 
-    restaurantEmoji: "🥗", 
-    date: "Oct 22, 2023", 
-    time: "01:20 PM", 
-    items: 1, 
-    total: 12.50, 
-    status: "SERVED" 
+    restaurant: "Nhà Hàng Phố Cổ", 
+    restaurantEmoji: "🍜", 
+    date: "2 ngày trước", 
+    time: "13:20", 
+    items: 3, 
+    total: 200000, 
+    status: "SERVED",
+    orderItems: [
+      { name: "Cơm Tấm Bì Chả", quantity: 1, price: 80000 },
+      { name: "Sinh Tố Bơ", quantity: 1, price: 40000 },
+      { name: "Bánh Flan", quantity: 2, price: 25000 }
+    ]
+  },
+  { 
+    id: "ORD-005", 
+    restaurant: "Nhà Hàng Phố Cổ", 
+    restaurantEmoji: "🍜", 
+    date: "3 ngày trước", 
+    time: "11:45", 
+    items: 2, 
+    total: 125000, 
+    status: "CANCELLED",
+    orderItems: [
+      { name: "Cơm Chiên Dương Châu", quantity: 1, price: 85000 },
+      { name: "Nước Cam Tươi", quantity: 1, price: 35000 }
+    ]
   },
 ];
 

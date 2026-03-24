@@ -298,6 +298,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.quickActionTitle}>My Wallet</Text>
             </TouchableOpacity>
             
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('TestMenu')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#FF5722', '#D84315']}
+                style={styles.quickActionIcon}
+              >
+                <Icon name="bug" size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Test Menu</Text>
+            </TouchableOpacity>
+            
             {__DEV__ && (
               <>
                 <TouchableOpacity
