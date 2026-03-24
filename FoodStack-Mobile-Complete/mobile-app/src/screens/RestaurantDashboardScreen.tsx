@@ -15,10 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
 import { getApiBaseUrl } from '../services/api-config';
-import { storage, restaurantApi, branchApi } from '../services/api';
+import apiClient, { storage, restaurantApi, branchApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import OwnerStaffApiService from '../services/ownerStaffApiService';
 import RestaurantStatisticsService from '../services/restaurantStatisticsService';
+import AuthService from '../services/authService';
 
 type RestaurantDashboardScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RestaurantDashboard'>;
 
@@ -183,19 +184,62 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         averagePerformance,
       });
 
-      // Set recent activity (mock data for now)
-      setRecentActivity([
-        { id: '1', type: 'order', title: 'Đơn hàng mới #402', time: '2 phút trước', amount: '125.000đ' },
-        { id: '2', type: 'service', title: 'Yêu cầu phục vụ bàn 4', time: '5 phút trước' },
-        { id: '3', type: 'payment', title: 'Thanh toán #398', time: '12 phút trước', amount: '89.000đ' },
-      ]);
+      // Fetch analytics dashboard for recent activity & top items
+      const userData = await AuthService.getUserData();
+      const restaurantId = userData?.restaurantId;
+      if (restaurantId) {
+        try {
+          const analyticsRes = await apiClient.get<{ success: boolean; data: any }>(
+            `/analytics/dashboard/${restaurantId}`,
+            { params: { period: '1d' } }
+          );
+          const dashData = analyticsRes.data.data || {};
 
-      // Set top items (mock data for now)
-      setTopItems([
-        { name: 'Phở bò đặc biệt', sold: 342, progress: 85 },
-        { name: 'Cơm tấm sườn nướng', sold: 289, progress: 72 },
-        { name: 'Cà phê sữa đá', sold: 215, progress: 54 },
-      ]);
+          // Map top selling items from analytics
+          if (Array.isArray(dashData.menu?.topSellingItems) && dashData.menu.topSellingItems.length > 0) {
+            const maxQty = dashData.menu.topSellingItems[0].totalQuantity || 1;
+            setTopItems(
+              dashData.menu.topSellingItems.slice(0, 3).map((item: any) => ({
+                name: item.itemName || item.name || 'Unknown',
+                sold: item.totalQuantity || 0,
+                progress: Math.round(((item.totalQuantity || 0) / maxQty) * 100),
+              }))
+            );
+          } else {
+            setTopItems([]);
+          }
+
+          // Map recent orders as recent activity
+          if (Array.isArray(dashData.recentOrders) && dashData.recentOrders.length > 0) {
+            setRecentActivity(
+              dashData.recentOrders.slice(0, 5).map((order: any) => {
+                const createdAt = new Date(order.createdAt || order.created_at);
+                const diffMs = Date.now() - createdAt.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                const timeText = diffMins < 60
+                  ? `${diffMins} phút trước`
+                  : `${Math.floor(diffMins / 60)} giờ trước`;
+                return {
+                  id: order.id || order.orderNumber,
+                  type: 'order' as const,
+                  title: `Đơn hàng #${order.orderNumber || order.id?.slice(-4) || '---'}`,
+                  time: timeText,
+                  amount: order.total ? `${order.total.toLocaleString('vi-VN')}đ` : undefined,
+                };
+              })
+            );
+          } else {
+            setRecentActivity([]);
+          }
+        } catch (analyticsErr) {
+          console.warn('Analytics dashboard not available:', analyticsErr);
+          setRecentActivity([]);
+          setTopItems([]);
+        }
+      } else {
+        setRecentActivity([]);
+        setTopItems([]);
+      }
 
       console.log('📊 Restaurant dashboard data loaded successfully');
     } catch (error) {

@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
+import apiClient from '../services/api';
 
 type OwnerTableManagementScreenNavigationProp = StackNavigationProp<RootStackParamList, 'OwnerTableManagement'>;
 
@@ -68,123 +69,85 @@ const OwnerTableManagementScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadTableData = async () => {
     try {
-      // Mock data - replace with API call
-      const mockAreas: Area[] = [
-        {
-          id: 'area_1',
-          name: 'Khu vực A',
-          tables: [
-            {
-              id: 'table_a1',
-              name: 'A01',
-              capacity: 4,
-              status: 'occupied',
-              area: 'Khu vực A',
-              currentOrder: {
-                id: 'order_1',
-                customerName: 'Nguyễn Văn A',
-                orderTime: '19:30',
-                totalAmount: 250000,
-              },
-            },
-            {
-              id: 'table_a2',
-              name: 'A02',
-              capacity: 2,
-              status: 'available',
-              area: 'Khu vực A',
-            },
-            {
-              id: 'table_a3',
-              name: 'A03',
-              capacity: 6,
-              status: 'reserved',
-              area: 'Khu vực A',
-              reservationInfo: {
-                customerName: 'Trần Thị B',
-                phone: '0901234567',
-                time: '20:00',
-              },
-            },
-            {
-              id: 'table_a4',
-              name: 'A04',
-              capacity: 4,
-              status: 'cleaning',
-              area: 'Khu vực A',
-            },
-          ],
-        },
-        {
-          id: 'area_2',
-          name: 'Khu vực B',
-          tables: [
-            {
-              id: 'table_b1',
-              name: 'B01',
-              capacity: 8,
-              status: 'occupied',
-              area: 'Khu vực B',
-              currentOrder: {
-                id: 'order_2',
-                customerName: 'Lê Văn C',
-                orderTime: '19:15',
-                totalAmount: 450000,
-              },
-            },
-            {
-              id: 'table_b2',
-              name: 'B02',
-              capacity: 4,
-              status: 'available',
-              area: 'Khu vực B',
-            },
-            {
-              id: 'table_b3',
-              name: 'B03',
-              capacity: 2,
-              status: 'out_of_service',
-              area: 'Khu vực B',
-            },
-            {
-              id: 'table_b4',
-              name: 'B04',
-              capacity: 6,
-              status: 'available',
-              area: 'Khu vực B',
-            },
-          ],
-        },
-        {
-          id: 'area_3',
-          name: 'Khu VIP',
-          tables: [
-            {
-              id: 'table_vip1',
-              name: 'VIP1',
-              capacity: 10,
-              status: 'reserved',
-              area: 'Khu VIP',
-              reservationInfo: {
-                customerName: 'Phạm Văn D',
-                phone: '0902345678',
-                time: '21:00',
-              },
-            },
-            {
-              id: 'table_vip2',
-              name: 'VIP2',
-              capacity: 12,
-              status: 'available',
-              area: 'Khu VIP',
-            },
-          ],
-        },
-      ];
+      // Get the first branch of the owner as a default
+      const branchRes = await apiClient.get('/branches');
+      const branches = branchRes.data?.data?.branches || branchRes.data?.data || branchRes.data;
+      const branchList = Array.isArray(branches) ? branches : [];
+      let mappedAreas: Area[] = [];
 
-      setAreas(mockAreas);
+      if (branchList.length > 0) {
+        const branchId = branchList[0].id;
+        
+        // Fetch areas and tables for this branch
+        const [areasRes, tablesRes] = await Promise.all([
+          apiClient.get(`/branches/${branchId}/areas`).catch(() => ({ data: { data: [] } })),
+          apiClient.get(`/branches/${branchId}/tables`).catch(() => ({ data: { data: [] } }))
+        ]);
+        
+        const apiAreas = areasRes.data?.data || areasRes.data || [];
+        const apiTables = tablesRes.data?.data || tablesRes.data || [];
+        const areaArray = Array.isArray(apiAreas) ? apiAreas : [];
+        const tableArray = Array.isArray(apiTables) ? apiTables : [];
+
+        // Merge tables into their respective areas
+        if (areaArray.length > 0) {
+          mappedAreas = areaArray.map((area: any) => {
+            const areaTables = tableArray.filter((t: any) => t.area_id === area.id).map((t: any) => ({
+              id: t.id,
+              name: t.name || t.table_number || 'Unknown',
+              capacity: t.capacity || 4,
+              status: t.status ? t.status.toLowerCase() : 'available',
+              area: area.name,
+              currentOrder: undefined, // Requires more API calls for active orders
+              reservationInfo: undefined 
+            }));
+            
+            return {
+              id: area.id,
+              name: area.name,
+              tables: areaTables
+            };
+          });
+        }
+      }
+
+      // If no valid data from API, provide a UI fallback (1 Area, 1 Table)
+      if (mappedAreas.length === 0) {
+        mappedAreas = [
+          {
+            id: 'fallback_area_1',
+            name: 'Khu vực Mẫu',
+            tables: [
+              {
+                id: 'fallback_table_1',
+                name: 'TB-01',
+                capacity: 4,
+                status: 'available',
+                area: 'Khu vực Mẫu'
+              }
+            ]
+          }
+        ];
+      }
+
+      setAreas(mappedAreas);
     } catch (error) {
-      console.error('Error loading table data:', error);
+      console.warn('Error loading table data from API, using fallback:', error);
+      setAreas([
+          {
+            id: 'fallback_area_1',
+            name: 'Khu vực Mẫu (Fallback)',
+            tables: [
+              {
+                id: 'fallback_table_1',
+                name: 'TB-01',
+                capacity: 4,
+                status: 'available',
+                area: 'Khu vực Mẫu (Fallback)'
+              }
+            ]
+          }
+      ]);
     }
   };
 

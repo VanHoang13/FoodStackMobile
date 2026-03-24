@@ -45,20 +45,6 @@ class RestaurantStatisticsService {
     try {
       console.log('🏪 Attempting to fetch restaurant info from API...');
       
-      // Check authentication first
-      const isAuth = await AuthService.isAuthenticated();
-      if (!isAuth) {
-        console.log('⚠️ User not authenticated, falling back to mock data');
-        return this.getMockRestaurantInfo();
-      }
-
-      // Check user role
-      const userData = await AuthService.getUserData();
-      if (!userData || !['OWNER', 'MANAGER'].includes(userData.role)) {
-        console.log('⚠️ User does not have permission to access restaurant data. Current role:', userData?.role || 'unknown');
-        return this.getMockRestaurantInfo();
-      }
-
       const response = await apiClient.get<{
         success: boolean;
         message: string;
@@ -75,28 +61,13 @@ class RestaurantStatisticsService {
         await AuthService.logout();
       }
       
-      console.log('⚠️ Falling back to mock restaurant info');
-      return this.getMockRestaurantInfo();
+      return [];
     }
   }
 
   async getRestaurantStatistics(from?: string, to?: string): Promise<RestaurantStatistics> {
     try {
       console.log('📊 Attempting to fetch restaurant statistics from API...');
-      
-      // Check authentication first
-      const isAuth = await AuthService.isAuthenticated();
-      if (!isAuth) {
-        console.log('⚠️ User not authenticated, falling back to mock data');
-        return this.getMockStatistics();
-      }
-
-      // Check user role
-      const userData = await AuthService.getUserData();
-      if (!userData || !['OWNER', 'MANAGER'].includes(userData.role)) {
-        console.log('⚠️ User does not have permission to access restaurant statistics. Current role:', userData?.role || 'unknown');
-        return this.getMockStatistics();
-      }
 
       const params: any = {};
       if (from) params.from = from;
@@ -118,8 +89,7 @@ class RestaurantStatisticsService {
         await AuthService.logout();
       }
       
-      console.log('⚠️ Falling back to mock restaurant statistics');
-      return this.getMockStatistics();
+      throw error;
     }
   }
 

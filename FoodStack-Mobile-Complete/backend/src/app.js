@@ -621,6 +621,7 @@ function createApp() {
   app.use('/api/v1/subscriptions', require('./routes/v1/subscriptions'));
   app.use('/api/v1/analytics', require('./routes/v1/analytics'));
   app.use('/api/v1/upload', require('./routes/upload'));
+  app.use('/api/v1/inventory', require('./routes/v1/inventory'));
 
   // Staff Dashboard routes
   const { createStaffDashboardRoutes } = require('./routes/v1/staff-dashboard');

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
+  ActivityIndicator,
   Dimensions,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -13,6 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
+import apiClient from '../services/api';
+import AuthService from '../services/authService';
 
 type RestaurantStatisticsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RestaurantStatistics'>;
 
@@ -44,6 +47,7 @@ const { width } = Dimensions.get('window');
 
 const RestaurantStatisticsScreen: React.FC<Props> = ({ navigation }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<StatisticsData>({
     totalRevenue: 0,
     totalOrders: 0,
@@ -55,6 +59,7 @@ const RestaurantStatisticsScreen: React.FC<Props> = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -64,36 +69,91 @@ const RestaurantStatisticsScreen: React.FC<Props> = ({ navigation }) => {
     loadStatistics();
   }, [selectedPeriod]);
 
+  const getDateRange = () => {
+    const now = new Date();
+    const to = now.toISOString();
+    let from: string;
+
+    if (selectedPeriod === 'today') {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      from = start.toISOString();
+    } else if (selectedPeriod === 'week') {
+      const start = new Date(now);
+      start.setDate(now.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      from = start.toISOString();
+    } else {
+      const start = new Date(now);
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      from = start.toISOString();
+    }
+    return { from, to };
+  };
+
   const loadStatistics = async () => {
     try {
-      // TODO: Implement API call to get statistics
-      // Mock data for now
+      setLoading(true);
+      const { from, to } = getDateRange();
+
+      // Fetch restaurant statistics from real API
+      const statsRes = await apiClient.get<{ success: boolean; data: any }>(
+        `/restaurants/me/statistics`,
+        { params: { from, to } }
+      );
+
+      const statsData = statsRes.data.data || {};
+
+      // Build revenueByDay for week period
+      let revenueByDay: Array<{ day: string; revenue: number }> = [];
+      if (selectedPeriod === 'week' && statsData.revenueByDay) {
+        const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        revenueByDay = statsData.revenueByDay.map((item: any) => ({
+          day: item.day || dayLabels[new Date(item.date).getDay()] || '',
+          revenue: item.revenue || 0,
+        }));
+      }
+
+      // Fetch top selling items from analytics endpoint
+      let topSellingItems: Array<{ name: string; quantity: number; revenue: number }> = [];
+      try {
+        const userData = await AuthService.getUserData();
+        const restaurantId = userData?.restaurantId;
+        if (restaurantId) {
+          const menuRes = await apiClient.get<{ success: boolean; data: any }>(
+            `/analytics/menu/${restaurantId}`,
+            { params: { startDate: from, endDate: to } }
+          );
+          const menuData = menuRes.data.data || {};
+          if (Array.isArray(menuData.topSellingItems)) {
+            topSellingItems = menuData.topSellingItems.slice(0, 5).map((item: any) => ({
+              name: item.itemName || item.name || 'Unknown',
+              quantity: item.totalQuantity || item.quantity || 0,
+              revenue: item.revenue || 0,
+            }));
+          }
+        }
+      } catch (menuErr) {
+        console.warn('Could not load top selling items:', menuErr);
+      }
+
       setStatistics({
-        totalRevenue: 2450000,
-        totalOrders: 45,
-        averageOrderValue: 54444,
-        topSellingItems: [
-          { name: 'Phở bò', quantity: 15, revenue: 975000 },
-          { name: 'Cơm tấm', quantity: 12, revenue: 540000 },
-          { name: 'Cà phê đen', quantity: 20, revenue: 500000 },
-        ],
-        revenueByDay: [
-          { day: 'T2', revenue: 350000 },
-          { day: 'T3', revenue: 420000 },
-          { day: 'T4', revenue: 380000 },
-          { day: 'T5', revenue: 450000 },
-          { day: 'T6', revenue: 520000 },
-          { day: 'T7', revenue: 330000 },
-          { day: 'CN', revenue: 0 },
-        ],
+        totalRevenue: statsData.todayRevenue ?? statsData.weeklyRevenue ?? statsData.monthlyRevenue ?? 0,
+        totalOrders: statsData.todayOrders ?? statsData.weeklyOrders ?? statsData.monthlyOrders ?? 0,
+        averageOrderValue: statsData.avgOrderValue ?? 0,
+        topSellingItems,
+        revenueByDay,
         ordersByStatus: {
-          completed: 42,
-          cancelled: 2,
-          pending: 1,
+          completed: statsData.completedOrders ?? 0,
+          cancelled: statsData.cancelledOrders ?? 0,
+          pending: statsData.pendingOrders ?? 0,
         },
       });
     } catch (error) {
       console.error('Error loading statistics:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -187,6 +247,12 @@ const RestaurantStatisticsScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF7A30" />
+            <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+          </View>
+        ) : (
         <Animated.View style={[styles.statisticsContainer, { opacity: fadeAnim }]}>
           {/* Overview Cards */}
           <View style={styles.overviewContainer}>
@@ -291,6 +357,7 @@ const RestaurantStatisticsScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
         </Animated.View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -300,6 +367,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f0',
+  },
+
+  loadingContainer: {
+    flex: 1,
+    paddingVertical: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
 
   // Header Styles

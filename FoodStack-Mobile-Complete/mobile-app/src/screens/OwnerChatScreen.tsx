@@ -14,6 +14,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
+import apiClient from '../services/api';
 
 type OwnerChatScreenNavigationProp = StackNavigationProp<RootStackParamList, 'OwnerChat'>;
 
@@ -63,113 +64,72 @@ const OwnerChatScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadChatRooms = async () => {
     try {
-      // Mock data - replace with API call
-      const mockRooms: ChatRoom[] = [
-        {
-          id: 'room_1',
-          name: 'Nhóm Nhân viên Phục vụ',
-          type: 'group',
-          lastMessage: 'Bàn 5 cần hỗ trợ',
-          lastMessageTime: '2 phút trước',
-          unreadCount: 3,
-          isOnline: true,
-          participants: ['staff_1', 'staff_2', 'staff_3']
-        },
-        {
-          id: 'room_2',
-          name: 'Trần Văn A (Bếp trưởng)',
-          type: 'individual',
-          lastMessage: 'Nguyên liệu đã chuẩn bị xong',
-          lastMessageTime: '5 phút trước',
-          unreadCount: 1,
-          isOnline: true,
-        },
-        {
-          id: 'room_3',
-          name: 'Nguyễn Thị B (Thu ngân)',
-          type: 'individual',
-          lastMessage: 'Báo cáo ca sáng đã gửi',
-          lastMessageTime: '15 phút trước',
-          unreadCount: 0,
-          isOnline: false,
-        },
-        {
-          id: 'room_4',
-          name: 'Nhóm Bếp',
-          type: 'group',
-          lastMessage: 'Đơn hàng #402 đã hoàn thành',
-          lastMessageTime: '30 phút trước',
-          unreadCount: 0,
-          isOnline: true,
-          participants: ['chef_1', 'chef_2', 'chef_3']
-        },
-      ];
+      const response = await apiClient.get('/staff-chat/rooms');
+      const data = response.data?.data || response.data;
+      const roomsList = Array.isArray(data) ? data : [];
 
-      setChatRooms(mockRooms);
+      if (roomsList.length > 0) {
+        setChatRooms(roomsList);
+      } else {
+        setChatRooms([
+         {
+           id: 'fallback_room_1',
+           name: 'FoodStack Assistant',
+           type: 'individual',
+           lastMessage: 'Chào Chủ quán, tính năng chat đã sẵn sàng!',
+           lastMessageTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+           unreadCount: 1,
+           isOnline: true,
+         }
+        ]);
+      }
     } catch (error) {
-      console.error('Error loading chat rooms:', error);
+      console.warn('Error loading chat rooms:', error);
+      setChatRooms([
+         {
+           id: 'fallback_room_1',
+           name: 'FoodStack Chat (Offline)',
+           type: 'individual',
+           lastMessage: 'Không thể kết nối đến máy chủ chat.',
+           lastMessageTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+           unreadCount: 0,
+           isOnline: false,
+         }
+      ]);
     }
   };
 
   const loadMessages = async (roomId: string) => {
-    try {
-      // Mock messages - replace with API call
-      const mockMessages: Message[] = [
-        {
-          id: 'msg_1',
-          senderId: 'staff_1',
-          senderName: 'Lê Văn C',
-          message: 'Chào sếp! Hôm nay có 3 bàn đặt trước',
-          timestamp: '09:30',
-          type: 'text',
-          isOwner: false,
-        },
-        {
-          id: 'msg_2',
-          senderId: 'owner',
-          senderName: 'Chủ nhà hàng',
-          message: 'Tốt! Chuẩn bị kỹ để đón khách nhé',
-          timestamp: '09:32',
-          type: 'text',
-          isOwner: true,
-        },
-        {
-          id: 'msg_3',
-          senderId: 'staff_2',
-          senderName: 'Trần Thị D',
-          message: 'Menu hôm nay có món gì đặc biệt không ạ?',
-          timestamp: '09:35',
-          type: 'text',
-          isOwner: false,
-        },
-        {
-          id: 'msg_4',
-          senderId: 'owner',
-          senderName: 'Chủ nhà hàng',
-          message: 'Có món phở bò đặc biệt và cơm tấm sườn nướng mật ong',
-          timestamp: '09:36',
-          type: 'text',
-          isOwner: true,
-        },
-        {
-          id: 'msg_5',
-          senderId: 'staff_1',
-          senderName: 'Lê Văn C',
-          message: 'Bàn 5 cần hỗ trợ',
-          timestamp: '10:15',
-          type: 'text',
-          isOwner: false,
-        },
-      ];
+    if (roomId.startsWith('fallback')) {
+       setMessages([
+         {
+           id: 'fallback_msg_1',
+           senderId: 'system',
+           senderName: 'FoodStack',
+           message: 'Chào mừng! Tính năng chat đã được kích hoạt. Bạn hiện đang ở chế độ ngoại tuyến hoặc chưa có tin nhắn.',
+           timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+           type: 'text',
+           isOwner: false,
+         }
+       ]);
+       setTimeout(() => {
+         scrollViewRef.current?.scrollToEnd({ animated: true });
+       }, 100);
+       return;
+    }
 
-      setMessages(mockMessages);
+    try {
+      const response = await apiClient.get(`/staff-chat/rooms/${roomId}/messages`);
+      const msgsData = response.data?.data || response.data;
+      const fetchMsgs = Array.isArray(msgsData) ? msgsData : [];
+      setMessages(fetchMsgs);
       
       // Scroll to bottom after loading messages
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.warn('Error loading messages:', error);
     }
   };
 
@@ -185,42 +145,71 @@ const OwnerChatScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedRoom) return;
 
-    const message: Message = {
-      id: `msg_${Date.now()}`,
-      senderId: 'owner',
-      senderName: 'Chủ nhà hàng',
-      message: newMessage.trim(),
-      timestamp: new Date().toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      type: 'text',
-      isOwner: true,
-    };
-
-    setMessages(prev => [...prev, message]);
+    const currentMsgStr = newMessage.trim();
     setNewMessage('');
 
-    // Update last message in room list
-    setChatRooms(prev =>
-      prev.map(room =>
-        room.id === selectedRoom.id
-          ? {
-              ...room,
-              lastMessage: message.message,
-              lastMessageTime: 'Vừa xong',
-            }
-          : room
-      )
-    );
+    if (selectedRoom.id.startsWith('fallback')) {
+       const message: Message = {
+         id: `msg_${Date.now()}`,
+         senderId: 'owner',
+         senderName: 'Bạn',
+         message: currentMsgStr,
+         timestamp: new Date().toLocaleTimeString('vi-VN', {
+           hour: '2-digit',
+           minute: '2-digit',
+         }),
+         type: 'text',
+         isOwner: true,
+       };
+       setMessages(prev => [...prev, message]);
+       // Scroll to bottom
+       setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+       return;
+    }
 
-    // Scroll to bottom
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    try {
+      const payload = { message: currentMsgStr };
+      const response = await apiClient.post(`/staff-chat/rooms/${selectedRoom.id}/messages`, payload);
+      
+      const savedMsg = response.data?.data || response.data;
+      if (savedMsg && savedMsg.id) {
+         setMessages(prev => [...prev, savedMsg]);
+      } else {
+         // Optimistic lock response fallback if strictly backend failed returning structure
+         setMessages(prev => [...prev, {
+             id: `msg_${Date.now()}`,
+             senderId: 'owner',
+             senderName: 'Chủ nhà hàng',
+             message: currentMsgStr,
+             timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+             type: 'text',
+             isOwner: true,
+         }]);
+      }
+
+      // Update last message in room list
+      setChatRooms(prev =>
+        prev.map(room =>
+          room.id === selectedRoom.id
+            ? {
+                ...room,
+                lastMessage: currentMsgStr,
+                lastMessageTime: 'Vừa xong',
+              }
+            : room
+        )
+      );
+
+      // Scroll to bottom
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (error) {
+      console.warn('Error sending message:', error);
+    }
   };
 
   const renderChatList = () => (

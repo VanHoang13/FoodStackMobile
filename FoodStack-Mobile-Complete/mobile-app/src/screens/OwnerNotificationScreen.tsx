@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
+import apiClient from '../services/api';
 
 type OwnerNotificationScreenNavigationProp = StackNavigationProp<RootStackParamList, 'OwnerNotification'>;
 
@@ -49,63 +50,38 @@ const OwnerNotificationScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadNotifications = async () => {
     try {
-      // Mock data - replace with API call
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          type: 'order',
-          title: 'Đơn hàng mới #402',
-          message: 'Khách hàng Nguyễn Văn A vừa đặt đơn hàng tại bàn B05',
-          time: '2 phút trước',
-          isRead: false,
-          priority: 'high',
-          data: { orderId: '402', tableNumber: 'B05' }
-        },
-        {
-          id: '2',
-          type: 'payment',
-          title: 'Thanh toán thành công',
-          message: 'Đơn hàng #398 đã được thanh toán - 125.000đ',
-          time: '5 phút trước',
-          isRead: false,
-          priority: 'medium',
-          data: { orderId: '398', amount: 125000 }
-        },
-        {
-          id: '3',
-          type: 'staff',
-          title: 'Nhân viên xin nghỉ',
-          message: 'Trần Thị B xin nghỉ ca chiều hôm nay',
-          time: '15 phút trước',
-          isRead: true,
-          priority: 'medium',
-          data: { staffId: 'staff_2', shift: 'afternoon' }
-        },
-        {
-          id: '4',
-          type: 'inventory',
-          title: 'Cảnh báo tồn kho',
-          message: 'Thịt bò sắp hết (còn 2kg), cần nhập thêm',
-          time: '30 phút trước',
-          isRead: false,
-          priority: 'high',
-          data: { item: 'beef', quantity: 2 }
-        },
-        {
-          id: '5',
-          type: 'system',
-          title: 'Cập nhật hệ thống',
-          message: 'Hệ thống đã được cập nhật phiên bản mới',
-          time: '1 giờ trước',
-          isRead: true,
-          priority: 'low',
-          data: { version: '2.1.0' }
-        },
-      ];
+      const response = await apiClient.get('/staff-notifications');
+      const fetchList = response.data?.data || response.data || [];
+      const list = Array.isArray(fetchList) ? fetchList : [];
 
-      setNotifications(mockNotifications);
+      if (list.length > 0) {
+        setNotifications(list);
+      } else {
+        setNotifications([
+          {
+            id: 'fallback_notif_1',
+            type: 'system',
+            title: 'Chào mừng bạn đến với FoodStack',
+            message: 'Hệ thống đã sẵn sàng. Chưa có thông báo mới nào.',
+            time: new Date().toISOString(),
+            isRead: false,
+            priority: 'low',
+          }
+        ]);
+      }
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.warn('Error loading notifications:', error);
+      setNotifications([
+        {
+          id: 'fallback_notif_1',
+          type: 'system',
+          title: 'Chào mừng (Fallback)',
+          message: 'Không thể tải thông báo từ máy chủ',
+          time: new Date().toISOString(),
+          isRead: false,
+          priority: 'low',
+        }
+      ]);
     }
   };
 
@@ -115,20 +91,38 @@ const OwnerNotificationScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  const handleMarkAsRead = async (notificationId: string) => {
+    if (notificationId.startsWith('fallback')) {
+       setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n));
+       return;
+    }
+    try {
+      await apiClient.patch(`/staff-notifications/${notificationId}/read`);
+      setNotifications(prev =>
+        prev.map(notification =>
+          notification.id === notificationId
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+    } catch (error) {
+       console.warn('Failed to mark notification as read:', error);
+    }
   };
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+  const handleMarkAllAsRead = async () => {
+    try {
+      await apiClient.post('/staff-notifications/read-all');
+      setNotifications(prev =>
+        prev.map(notification => ({ ...notification, isRead: true }))
+      );
+    } catch (error) {
+      console.warn('Failed to mark all as read:', error);
+      // Fallback update UI anyway
+      setNotifications(prev =>
+        prev.map(notification => ({ ...notification, isRead: true }))
+      );
+    }
   };
 
   const getFilteredNotifications = () => {
