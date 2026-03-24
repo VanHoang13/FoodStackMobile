@@ -17,6 +17,7 @@ import { useCart, CartItem } from '../contexts/CartContext';
 import { orderApi } from '../services/api';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
+import OrderIntegrationService from '../services/orderIntegrationService';
 
 type CartScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Cart'>;
 
@@ -91,22 +92,34 @@ const CartScreen: React.FC<Props> = ({ navigation, route }) => {
       const response = await orderApi.createOrder(orderData);
 
       if (response.success) {
-        Alert.alert(
-          'Đặt hàng thành công!',
-          `Đơn hàng #${response.data.orderNumber} đã được gửi đến bếp`,
-          [
-            {
-              text: 'Theo dõi đơn hàng',
-              onPress: () => {
-                clearCart();
-                navigation.navigate('OrderTracking', { 
-                  orderId: response.data.id,
-                  orderNumber: response.data.orderNumber 
-                });
-              },
-            },
-          ]
-        );
+        // Create staff order for workflow management
+        try {
+          const staffOrderData = {
+            customerName: 'Khách hàng', // In real app, get from auth context
+            table: tableInfo.table.name,
+            totalAmount: totalAmount,
+            customerPhone: '0901234567', // In real app, get from auth context
+            branchId: tableInfo.branch.id,
+            restaurantId: tableInfo.restaurant?.id || tableInfo.branch.restaurant?.id,
+            notes: orderNotes,
+            apiOrderId: response.data.id // Pass the API order ID for mapping
+          };
+
+          await OrderIntegrationService.createStaffOrderFromCart(items, staffOrderData);
+          console.log('✅ Staff order created successfully');
+        } catch (staffOrderError) {
+          console.error('❌ Error creating staff order:', staffOrderError);
+          // Don't block the main flow, just log the error
+        }
+
+        // Navigate to payment screen with total amount
+        // Don't clear cart yet - will clear after successful payment
+        navigation.navigate('Payment', {
+          orderId: response.data.id,
+          sessionToken,
+          tableInfo,
+          totalAmount: totalAmount // Pass total amount as param
+        });
       } else {
         throw new Error(response.message || 'Không thể đặt hàng');
       }

@@ -37,7 +37,7 @@ function resolveRange(dto) {
 
 class GetRestaurantStatisticsUseCase {
   /**
-   * @param {import('@prisma/client').PrismaClient} prisma
+   * @param {Object} prisma - Mock database instance
    */
   constructor(prisma) {
     this.prisma = prisma;

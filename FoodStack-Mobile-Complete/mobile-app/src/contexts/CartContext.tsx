@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
 import { MenuItem } from '../types';
 
 export interface CartItem {
@@ -148,7 +148,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
-  const addItem = (item: Omit<CartItem, 'id' | 'subtotal'>) => {
+  const addItem = useCallback((item: Omit<CartItem, 'id' | 'subtotal'>) => {
     const id = `${item.menuItem.id}-${Date.now()}-${Math.random()}`;
     const subtotal = item.quantity * calculateItemPrice(item.menuItem, item.customizations);
     
@@ -160,26 +160,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
         subtotal,
       },
     });
-  };
+  }, []);
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
-  };
+  }, []);
 
-  const removeItem = (id: string) => {
+  const removeItem = useCallback((id: string) => {
     dispatch({ type: 'REMOVE_ITEM', payload: { id } });
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     dispatch({ type: 'CLEAR_CART' });
-  };
+  }, []);
 
-  const setTableInfo = (tableInfo: any, sessionToken?: string) => {
+  const setTableInfo = useCallback((tableInfo: any, sessionToken?: string) => {
     dispatch({ type: 'SET_TABLE_INFO', payload: { tableInfo, sessionToken } });
-  };
+  }, []);
 
-  const getTotalItems = () => state.totalItems;
-  const getTotalAmount = () => state.totalAmount;
+  const getTotalItems = useCallback(() => state.totalItems, [state.totalItems]);
+  const getTotalAmount = useCallback(() => state.totalAmount, [state.totalAmount]);
 
   return (
     <CartContext.Provider

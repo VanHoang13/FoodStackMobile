@@ -1,10 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
-
+// Mock repository - no PrismaClient needed
 const { prisma } = require('../config/database.config');
 
 class AreaRepository {
-  constructor(prismaClient) {
-    this.prisma = prismaClient || prisma;
+  constructor() {
+    this.prisma = prisma; // Use mock prisma from config
   }
 
   async findByBranchAndName(branchId, name, tx) {

@@ -14,25 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
 import { theme } from '../theme';
-import { getApiBaseUrl } from '../services/api-config';
-import { storage, restaurantApi } from '../services/api';
+import { adminApi, AdminStats } from '../services/adminApi';
 import { useAuth } from '../contexts/AuthContext';
 
 type AdminDashboardScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AdminDashboard'>;
 
 interface Props {
   navigation: AdminDashboardScreenNavigationProp;
-}
-
-interface AdminStats {
-  totalRestaurants: number;
-  totalUsers: number;
-  totalOrders: number;
-  totalRevenue: number;
-  activeOrders: number;
-  pendingApprovals: number;
-  revenueGrowth: number;
-  userGrowth: number;
 }
 
 const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
@@ -48,6 +36,7 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     userGrowth: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAdminData();
@@ -57,31 +46,26 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
     try {
       console.log('📊 Loading admin dashboard data...');
       
-      // For admin, we need different APIs - use mock data for now since admin APIs aren't implemented
-      console.log('⚠️ Using mock data for admin dashboard');
+      const response = await adminApi.getDashboardStats();
       
-      // Mock admin data based on existing database
-      const totalRestaurants = 3; // From our database
-      const totalUsers = 5; // From test users
-      const totalOrders = 25;
-      const totalRevenue = 1250000;
-      const activeOrders = 3;
-      const pendingApprovals = 1;
-      const revenueGrowth = 15.2;
-      const userGrowth = 8.5;
-
-      setStats({
-        totalRestaurants,
-        totalUsers,
-        totalOrders,
-        totalRevenue,
-        activeOrders,
-        pendingApprovals,
-        revenueGrowth,
-        userGrowth,
-      });
-
-      console.log('📊 Admin dashboard data loaded successfully');
+      if (response.success && response.data) {
+        setStats(response.data);
+        console.log('📊 Admin dashboard data loaded successfully');
+      } else {
+        console.error('❌ Failed to load admin data:', response.message);
+        
+        // Fallback to demo data
+        setStats({
+          totalRestaurants: 1,
+          totalUsers: 5,
+          totalOrders: 25,
+          totalRevenue: 1250000,
+          activeOrders: 3,
+          pendingApprovals: 1,
+          revenueGrowth: 15.2,
+          userGrowth: 8.5,
+        });
+      }
     } catch (error) {
       console.error('❌ Error loading admin data:', error);
       
@@ -96,6 +80,8 @@ const AdminDashboardScreen: React.FC<Props> = ({ navigation }) => {
         revenueGrowth: 15.2,
         userGrowth: 8.5,
       });
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -2,8 +2,8 @@
 
 const { prisma } = require('../config/database.config');
 class CustomizationRepository {
-  constructor(prismaClient) {
-    this.prisma = prismaClient || prisma;
+  constructor() {
+    this.prisma = prisma; // Use mock prisma from config
   }
 
   async createGroup(data) {

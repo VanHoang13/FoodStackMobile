@@ -1,7 +1,8 @@
+const { prisma } = require('../config/database.config');
+
 class ReservationRepository {
-  constructor(prisma) {
-    if (!prisma) throw new Error('ReservationRepository requires prisma instance');
-    this.prisma = prisma;
+  constructor() {
+    this.prisma = prisma; // Use mock prisma from config
   }
 
   async findById(id) {

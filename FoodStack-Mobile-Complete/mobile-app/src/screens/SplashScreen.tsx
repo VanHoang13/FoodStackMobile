@@ -16,21 +16,29 @@ interface Props {
 }
 
 const SplashScreen: React.FC<Props> = ({ navigation }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
+    console.log('🔄 SplashScreen: Auth state check');
+    console.log('  - isLoading:', isLoading);
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - user role:', user?.role);
+    
     const timer = setTimeout(() => {
       if (!isLoading) {
-        if (isAuthenticated) {
+        console.log('🚀 SplashScreen: Navigating...');
+        if (isAuthenticated && user) {
+          console.log('✅ User authenticated, going to Home');
           navigation.replace('Home');
         } else {
+          console.log('❌ User not authenticated, going to Login');
           navigation.replace('Login');
         }
       }
-    }, 2000);
+    }, 1500); // Reduced from 2000 to 1500
 
     return () => clearTimeout(timer);
-  }, [isAuthenticated, isLoading, navigation]);
+  }, [isAuthenticated, isLoading, user, navigation]);
 
   return (
     <View style={styles.container}>

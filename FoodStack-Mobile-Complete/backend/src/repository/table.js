@@ -1,8 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
+// Mock repository - no PrismaClient needed
 
 class TableRepository {
   constructor(prisma) {
-    this.prisma = prisma || new PrismaClient();
+    this.prisma = prisma || null; // Mock implementation
   }
 
   async findByQrToken(qrToken) {

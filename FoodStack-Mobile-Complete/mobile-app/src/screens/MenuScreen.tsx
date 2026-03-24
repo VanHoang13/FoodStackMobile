@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { RootStackParamList, TableInfo, MenuData, MenuItem, Category } from '../types';
-import { publicApi, storage, branchApi } from '../services/api';
-import { useCartContext } from '../contexts/CartContext';
+import { publicApi, branchApi } from '../services/api';
 import { useCart } from '../contexts/CartContext';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
@@ -52,10 +51,12 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
     if (tableInfo) {
       setTableInfo(tableInfo, sessionToken);
     }
-  }, [tableInfo, sessionToken, setTableInfo]);
+  }, [tableInfo, sessionToken]); // Bỏ setTableInfo khỏi dependency
 
-  // Get branch ID from tableInfo or route params
-  const currentBranchId = branchId || tableInfo?.branch?.id;
+  // Get branch ID from tableInfo or route params (memoized)
+  const currentBranchId = useMemo(() => {
+    return branchId || tableInfo?.branch?.id;
+  }, [branchId, tableInfo?.branch?.id]);
 
   // Fetch menu data
   const { data: menuData, isLoading, error, refetch } = useQuery({
@@ -70,7 +71,7 @@ const MenuScreen: React.FC<Props> = ({ navigation, route }) => {
     if (menuData?.success && menuData.data?.categories && menuData.data.categories.length > 0 && !selectedCategory) {
       setSelectedCategory(menuData.data.categories[0].id);
     }
-  }, [menuData, selectedCategory]);
+  }, [menuData]);
 
   // Filter menu items based on search
   const getFilteredItems = (category: Category): MenuItem[] => {

@@ -232,12 +232,157 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.registerLink}>Đăng ký ngay</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Manager Quick Access */}
+            <View style={styles.managerQuickContainer}>
+              <Text style={styles.managerQuickTitle}>🎯 Truy cập nhanh</Text>
+              <View style={styles.managerButtonsRow}>
+                <TouchableOpacity
+                  style={styles.managerQuickButton}
+                  onPress={() => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'ManagerDashboard' }],
+                    });
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.managerQuickIcon}>👨‍💼</Text>
+                  <Text style={styles.managerQuickText}>MANAGER</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.ownerQuickButton}
+                  onPress={() => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'RestaurantDashboard' }],
+                    });
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.ownerQuickIcon}>🏪</Text>
+                  <Text style={styles.ownerQuickText}>OWNER</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.staffQuickButton}
+                  onPress={() => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'StaffDashboard' }],
+                    });
+                  }}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.staffQuickIcon}>👥</Text>
+                  <Text style={styles.staffQuickText}>STAFF</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Direct Access Buttons */}
+          <View style={styles.directAccessContainer}>
+            <Text style={styles.directAccessTitle}>🎯 Truy cập trực tiếp (Bypass Login)</Text>
+            <Text style={styles.directAccessSubtitle}>Chọn vai trò để truy cập ngay lập tức</Text>
+            
+            <View style={styles.roleGrid}>
+              <TouchableOpacity
+                style={[styles.roleCard, styles.adminCard]}
+                onPress={() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'AdminDashboard' }],
+                  });
+                }}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>👑</Text>
+                <Text style={styles.roleTitle}>ADMIN</Text>
+                <Text style={styles.roleSubtitle}>Quản trị hệ thống</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleCard, styles.ownerCard]}
+                onPress={() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'RestaurantDashboard' }],
+                  });
+                }}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>🏪</Text>
+                <Text style={styles.roleTitle}>OWNER</Text>
+                <Text style={styles.roleSubtitle}>Chủ nhà hàng</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleCard, styles.managerCard]}
+                onPress={() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'ManagerDashboard' }],
+                  });
+                }}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>👨‍💼</Text>
+                <Text style={styles.roleTitle}>MANAGER</Text>
+                <Text style={styles.roleSubtitle}>Quản lý chi nhánh</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleCard, styles.staffCard]}
+                onPress={() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'StaffDashboard' }],
+                  });
+                }}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>👥</Text>
+                <Text style={styles.roleTitle}>STAFF</Text>
+                <Text style={styles.roleSubtitle}>Nhân viên</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleCard, styles.customerCard]}
+                onPress={() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                  });
+                }}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>👤</Text>
+                <Text style={styles.roleTitle}>CUSTOMER</Text>
+                <Text style={styles.roleSubtitle}>Khách hàng</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleCard, styles.apiTestCard]}
+                onPress={() => navigation.navigate('APITest')}
+                disabled={isLoading}
+              >
+                <Text style={styles.roleIcon}>🚀</Text>
+                <Text style={styles.roleTitle}>API TEST</Text>
+                <Text style={styles.roleSubtitle}>Kiểm tra kết nối</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.directAccessNote}>
+              💡 Sử dụng truy cập trực tiếp khi không thể đăng nhập qua mạng
+            </Text>
           </View>
 
           {/* Demo Credentials */}
           {__DEV__ && (
             <View style={styles.demoContainer}>
-              <Text style={styles.demoTitle}>Demo Credentials:</Text>
+              <Text style={styles.demoTitle}>🔐 Demo Credentials (Nếu backend hoạt động):</Text>
               <TouchableOpacity
                 style={styles.demoButton}
                 onPress={() => {
@@ -245,16 +390,43 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                   setPassword('password123');
                 }}
               >
-                <Text style={styles.demoButtonText}>Admin Account</Text>
+                <Text style={styles.demoButtonText}>Admin: admin@foodstack.com</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.demoButton}
                 onPress={() => {
-                  setEmail('restaurant@foodstack.com');
-                  setPassword('password123');
+                  setEmail('owner@mobile.test');
+                  setPassword('123456');
                 }}
               >
-                <Text style={styles.demoButtonText}>Restaurant Account</Text>
+                <Text style={styles.demoButtonText}>Owner: owner@mobile.test</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.demoButton}
+                onPress={() => {
+                  setEmail('manager@mobile.test');
+                  setPassword('123456');
+                }}
+              >
+                <Text style={styles.demoButtonText}>Manager: manager@mobile.test</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.demoButton}
+                onPress={() => {
+                  setEmail('staff@mobile.test');
+                  setPassword('123456');
+                }}
+              >
+                <Text style={styles.demoButtonText}>Staff: staff@mobile.test</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.demoButton}
+                onPress={() => {
+                  setEmail('customer@mobile.test');
+                  setPassword('123456');
+                }}
+              >
+                <Text style={styles.demoButtonText}>Customer: customer@mobile.test</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -279,9 +451,9 @@ const styles = StyleSheet.create({
   },
   
   scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingTop: 32,
+    paddingBottom: 50,
   },
   
   // Header
@@ -319,7 +491,7 @@ const styles = StyleSheet.create({
   
   // Form
   formContainer: {
-    flex: 1,
+    marginBottom: 24,
   },
   
   inputContainer: {
@@ -457,35 +629,229 @@ const styles = StyleSheet.create({
   
   // Demo (Development only)
   demoContainer: {
-    marginTop: 32,
-    padding: 16,
+    marginTop: 12,
+    padding: 12,
     backgroundColor: '#FFF8F5',
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FFE0CC',
   },
   
   demoTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#E8622A',
-    marginBottom: 12,
+    marginBottom: 8,
     textAlign: 'center',
   },
   
   demoButton: {
     backgroundColor: '#E8622A',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 6,
     alignItems: 'center',
   },
   
   demoButtonText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#fff',
     fontWeight: '500',
+  },
+  
+  // Direct Access Styles
+  directAccessContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E3F2FD',
+  },
+  
+  directAccessTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1976D2',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  
+  directAccessSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  
+  roleCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 8,
+  },
+  
+  adminCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC3545',
+  },
+  
+  ownerCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#6F42C1',
+  },
+  
+  managerCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#3498DB',
+  },
+  
+  staffCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#20C997',
+  },
+  
+  customerCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#0D6EFD',
+  },
+  
+  apiTestCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FD7E14',
+    width: '100%',
+  },
+  
+  roleIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  
+  roleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 2,
+  },
+  
+  roleSubtitle: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+  },
+  
+  directAccessNote: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+
+  // Manager Quick Access
+  managerQuickContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  managerQuickTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+
+  managerButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  managerQuickButton: {
+    flex: 1,
+    backgroundColor: '#3498DB',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+
+  ownerQuickButton: {
+    flex: 1,
+    backgroundColor: '#6F42C1',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+
+  staffQuickButton: {
+    flex: 1,
+    backgroundColor: '#20C997',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+
+  managerQuickIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+
+  ownerQuickIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+
+  staffQuickIcon: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+
+  managerQuickText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  ownerQuickText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  staffQuickText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

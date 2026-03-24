@@ -23,7 +23,7 @@ const UpdateRestaurantSchema = z
 
 class UpdateRestaurantUseCase {
   /**
-   * @param {import('@prisma/client').PrismaClient} prisma
+   * @param {Object} prisma - Mock database instance
    */
   constructor(prisma) {
     this.prisma = prisma;

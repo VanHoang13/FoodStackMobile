@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { RootStackParamList, MenuItem, TableInfo, ItemCustomizations, CustomizationGroup, CustomizationOption } from '../types';
 import { publicApi } from '../services/api';
-import { useCartContext } from '../context/CartContext';
+import { useCart } from '../contexts/CartContext';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
 
@@ -47,7 +47,7 @@ const FoodDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const [notes, setNotes] = useState('');
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  const { addToCart } = useCartContext();
+  const { addItem } = useCart();
 
   // Fetch customizations for this menu item
   const { data: customizationsData, isLoading: customizationsLoading } = useQuery({
@@ -138,7 +138,18 @@ const FoodDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         options: selectedCustomizations[group.group_id] || []
       })).filter(group => group.options.length > 0);
 
-      addToCart(menuItem, quantity, formattedCustomizations, notes || undefined);
+      addItem({
+        menuItem,
+        quantity,
+        customizations: formattedCustomizations.map(group => ({
+          groupId: group.group_id,
+          groupName: group.group_name,
+          optionId: group.options[0]?.id || '',
+          optionName: group.options[0]?.name || '',
+          priceDelta: group.options.reduce((sum, opt) => sum + opt.price_delta, 0)
+        })),
+        notes: notes || undefined
+      });
       
       Alert.alert(
         'Đã thêm vào giỏ hàng',

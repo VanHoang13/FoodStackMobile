@@ -9,9 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiBaseUrl } from '../services/api-config';
 import { storage } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 
 const APITestScreen = () => {
   const [message, setMessage] = useState('Ready to test backend connection');
+  const { user, logout } = useAuth();
+  const navigation = useNavigation();
   const API_BASE_URL = getApiBaseUrl();
 
   const testConnection = async () => {
@@ -109,12 +113,41 @@ const APITestScreen = () => {
         }
       };
       
+      console.log('🔧 Setting up Manager bypass login...');
+      
+      // Clear existing auth data first
+      await logout();
+      
+      // Wait a bit for logout to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Set manager data
       await storage.setItem('access_token', managerData.accessToken);
       await storage.setItem('refresh_token', managerData.refreshToken);
       await storage.setItem('user_data', JSON.stringify(managerData.user));
       
-      Alert.alert('✅ Manager Login', 'Logged in as MANAGER\n\nReal credentials:\n📧 manager@mobile.test\n🔑 123456\n\nTest manager features:\n- Menu management\n- Order management\n- Branch statistics\n- Staff coordination');
+      console.log('✅ Manager data stored in storage');
+      
+      Alert.alert(
+        '✅ Manager Login Success', 
+        'Logged in as MANAGER\n\n📧 manager@mobile.test\n🔑 123456\n\n🎯 Manager Features:\n- Branch management\n- Staff coordination\n- Order processing\n- Performance tracking\n\n🔄 App will reload to Manager Dashboard...', 
+        [
+          {
+            text: 'Go to Manager Dashboard',
+            onPress: async () => {
+              console.log('🚀 Navigating to Manager Dashboard...');
+              
+              // Force navigate directly to ManagerDashboard
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'ManagerDashboard' }],
+              });
+            }
+          }
+        ]
+      );
     } catch (error: any) {
+      console.error('❌ Bypass login error:', error);
       Alert.alert('Error', error.message);
     }
   };
@@ -169,13 +202,62 @@ const APITestScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+      >
         <Text style={styles.title}>FoodStack API Test</Text>
         <Text style={styles.subtitle}>Backend: {API_BASE_URL}</Text>
+        
+        {/* MANAGER ACCESS - TOP PRIORITY */}
+        <View style={styles.managerSection}>
+          <Text style={styles.managerSectionTitle}>🎯 MANAGER ACCESS</Text>
+          <TouchableOpacity
+            style={styles.quickManagerAccess}
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'ManagerDashboard' }],
+              });
+            }}
+          >
+            <LinearGradient
+              colors={['#3498DB', '#2980B9']}
+              style={styles.quickManagerGradient}
+            >
+              <Text style={styles.quickManagerIcon}>👨‍💼</Text>
+              <Text style={styles.quickManagerTitle}>MANAGER DASHBOARD</Text>
+              <Text style={styles.quickManagerSubtitle}>Truy cập ngay lập tức</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Status:</Text>
           <Text style={styles.statusMessage}>{message}</Text>
+        </View>
+
+        {/* Current User Debug */}
+        <View style={styles.debugContainer}>
+          <Text style={styles.debugTitle}>🔍 Current User Debug:</Text>
+          <Text style={styles.debugText}>
+            Email: {user?.email || 'Not logged in'}{'\n'}
+            Name: {user?.fullName || 'N/A'}{'\n'}
+            Role: {user?.role || 'N/A'}{'\n'}
+            ID: {user?.id || 'N/A'}
+          </Text>
+          {user?.role && user.role !== 'MANAGER' && (
+            <Text style={styles.debugWarning}>
+              ⚠️ Current role is "{user.role}", not "MANAGER"
+            </Text>
+          )}
+          {user?.role === 'MANAGER' && (
+            <Text style={styles.debugSuccess}>
+              ✅ Role is MANAGER - should redirect to ManagerDashboard
+            </Text>
+          )}
         </View>
         
         <TouchableOpacity style={styles.button} onPress={testConnection}>
@@ -189,48 +271,104 @@ const APITestScreen = () => {
             <Text style={styles.roleButtonText}>👑 Login as ADMIN</Text>
           </TouchableOpacity>
           
+          <TouchableOpacity style={[styles.roleButton, styles.directAdminRole]} onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'AdminDashboard' }],
+            });
+          }}>
+            <Text style={styles.roleButtonText}>🎯 Direct Admin Dashboard</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity style={[styles.roleButton, styles.ownerRole]} onPress={testBypassOwner}>
             <Text style={styles.roleButtonText}>🏪 Login as OWNER</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.roleButton, styles.directOwnerRole]} onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RestaurantDashboard' }],
+            });
+          }}>
+            <Text style={styles.roleButtonText}>🎯 Direct Owner Dashboard</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={[styles.roleButton, styles.managerRole]} onPress={testBypassManager}>
             <Text style={styles.roleButtonText}>👨‍💼 Login as MANAGER</Text>
           </TouchableOpacity>
           
+          <TouchableOpacity style={[styles.roleButton, styles.directManagerRole]} onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'ManagerDashboard' }],
+            });
+          }}>
+            <Text style={styles.roleButtonText}>🎯 Direct Manager Dashboard</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity style={[styles.roleButton, styles.staffRole]} onPress={testBypassStaff}>
             <Text style={styles.roleButtonText}>👥 Login as STAFF</Text>
           </TouchableOpacity>
           
+          <TouchableOpacity style={[styles.roleButton, styles.directStaffRole]} onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'StaffDashboard' }],
+            });
+          }}>
+            <Text style={styles.roleButtonText}>🎯 Direct Staff Dashboard</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity style={[styles.roleButton, styles.customerRole]} onPress={testBypassCustomer}>
             <Text style={styles.roleButtonText}>👤 Login as CUSTOMER</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.roleButton, styles.directCustomerRole]} onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
+          }}>
+            <Text style={styles.roleButtonText}>🎯 Direct Customer Home</Text>
           </TouchableOpacity>
         </View>
         
         <View style={styles.infoContainer}>
           <Text style={styles.infoTitle}>Instructions:</Text>
           <Text style={styles.infoText}>
-            1. Test backend connection first{'\n'}
-            2. Choose a role to test specific features{'\n'}
-            3. Navigate to different screens to test functionality{'\n'}
-            4. Switch roles anytime to test different permissions{'\n'}
-            5. Use real login with credentials shown above
+            🎯 DIRECT ACCESS (Recommended):{'\n'}
+            • Click "🎯 Direct [Role] Dashboard" buttons{'\n'}
+            • Instantly access any role without authentication{'\n'}
+            • Perfect for testing and development{'\n'}
+            {'\n'}
+            🔐 BYPASS LOGIN (With Auth):{'\n'}
+            • Click "Login as [ROLE]" buttons{'\n'}
+            • Sets up mock authentication{'\n'}
+            • May require app reload{'\n'}
+            {'\n'}
+            🌐 REAL LOGIN:{'\n'}
+            • Test backend connection first{'\n'}
+            • Use real credentials if backend is running
           </Text>
         </View>
         
         <View style={styles.realLoginSection}>
-          <Text style={styles.realLoginTitle}>🔐 Test Real Authentication:</Text>
+          <Text style={styles.realLoginTitle}>🔐 Manager System Test:</Text>
           
-          <TouchableOpacity style={[styles.button, styles.realLoginButton]} onPress={testRealLogin}>
-            <Text style={styles.buttonText}>Test Real Login (Admin)</Text>
+          <TouchableOpacity style={[styles.button, styles.managerTestButton]} onPress={testBypassManager}>
+            <Text style={styles.buttonText}>🚀 Test Manager Dashboard</Text>
           </TouchableOpacity>
           
           <Text style={styles.realLoginNote}>
-            This will test actual backend authentication with:{'\n'}
-            📧 admin@mobile.test{'\n'}
-            🔑 123456
+            Click above to login as Manager and test:{'\n'}
+            • Manager Dashboard (Blue theme){'\n'}
+            • Branch-specific management{'\n'}
+            • Staff management for branch{'\n'}
+            • Order management{'\n'}
+            📧 manager@mobile.test | 🔑 123456
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -240,9 +378,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  content: {
+  
+  scrollView: {
     flex: 1,
+  },
+  
+  scrollContent: {
     padding: 20,
+    paddingBottom: 50,
   },
   title: {
     fontSize: 24,
@@ -259,14 +402,14 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statusLabel: {
     fontSize: 16,
@@ -281,11 +424,11 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    paddingHorizontal: 30,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   buttonText: {
     color: '#fff',
@@ -293,10 +436,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   roleSection: {
-    padding: 15,
+    padding: 12,
     backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    marginBottom: 20,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   roleSectionTitle: {
     fontSize: 16,
@@ -306,11 +449,11 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   roleButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   roleButtonText: {
     color: '#fff',
@@ -320,27 +463,42 @@ const styles = StyleSheet.create({
   adminRole: {
     backgroundColor: '#DC3545',
   },
+  directAdminRole: {
+    backgroundColor: '#A71E2A',
+  },
   ownerRole: {
     backgroundColor: '#6F42C1',
+  },
+  directOwnerRole: {
+    backgroundColor: '#5A2D91',
   },
   managerRole: {
     backgroundColor: '#FD7E14',
   },
+  directManagerRole: {
+    backgroundColor: '#3498DB',
+  },
   staffRole: {
     backgroundColor: '#20C997',
+  },
+  directStaffRole: {
+    backgroundColor: '#17A085',
   },
   customerRole: {
     backgroundColor: '#0D6EFD',
   },
+  directCustomerRole: {
+    backgroundColor: '#0B5ED7',
+  },
   infoContainer: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   infoTitle: {
     fontSize: 16,
@@ -352,6 +510,122 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  realLoginSection: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  realLoginTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  managerTestButton: {
+    backgroundColor: '#3498DB',
+  },
+  realLoginNote: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 16,
+  },
+  debugContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#333',
+  },
+  debugText: {
+    fontSize: 14,
+    color: '#666',
+    fontFamily: 'monospace',
+    lineHeight: 20,
+  },
+  debugWarning: {
+    fontSize: 12,
+    color: '#e74c3c',
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  debugSuccess: {
+    fontSize: 12,
+    color: '#27ae60',
+    marginTop: 8,
+    fontWeight: '600',
+  },
+
+  // Quick Manager Access
+  quickManagerAccess: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  quickManagerGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+
+  quickManagerIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+
+  quickManagerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+
+  quickManagerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+  },
+
+  // Manager Section
+  managerSection: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#3498DB',
+  },
+
+  managerSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1976D2',
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });
 

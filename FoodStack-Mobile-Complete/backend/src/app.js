@@ -117,6 +117,7 @@ const { OrderController } = require('./controller/order');
 // Routes
 const { createAuthRoutes } = require('./routes/v1/auth');
 const { createRestaurantRoutes } = require('./routes/v1/restaurant');
+const { createRestaurantStatisticsRoutes } = require('./routes/v1/restaurant-statistics');
 const { createBranchRoutes } = require('./routes/v1/branches');
 const { createCategoryRoutes } = require('./routes/v1/category');
 const { createMenuItemRoutes } = require('./routes/v1/menu-item');
@@ -158,7 +159,7 @@ function createApp() {
     next();
   });
 
-  // Use singleton Prisma instance from config
+  // Use mock database instance from config
   // No need to create new PrismaClient here
 
   // Services
@@ -169,17 +170,17 @@ function createApp() {
   const cloudinaryUploadService = new CloudinaryUploadService();
 
   // Repositories
-  const userRepository = new UserRepository(prisma);
-  const restaurantRepository = new RestaurantRepository(prisma);
-  const branchRepository = new BranchRepository(prisma);
-  const categoryRepository = new CategoryRepository(prisma);
-  const areaRepository = new AreaRepository(prisma);
-  const menuItemRepository = new MenuItemRepository(prisma);
-  const customizationRepository = new CustomizationRepository(prisma);
-  const reservationRepository = new ReservationRepository(prisma);
-  const tableRepository = new TableRepository(prisma);
-  const orderRepository = new OrderRepository(prisma);
-  const activityLogRepository = new ActivityLogRepository(prisma);
+  const userRepository = new UserRepository();
+  const restaurantRepository = new RestaurantRepository();
+  const branchRepository = new BranchRepository();
+  const categoryRepository = new CategoryRepository();
+  const areaRepository = new AreaRepository();
+  const menuItemRepository = new MenuItemRepository();
+  const customizationRepository = new CustomizationRepository();
+  const reservationRepository = new ReservationRepository();
+  const tableRepository = new TableRepository();
+  const orderRepository = new OrderRepository();
+  const activityLogRepository = new ActivityLogRepository();
 
   // Use cases (misc)
   const getRestaurantStatisticsUseCase = new GetRestaurantStatisticsUseCase(prisma);
@@ -257,6 +258,10 @@ function createApp() {
     getRestaurantStatisticsUseCase,
     deleteRestaurantUseCase,
   });
+
+  // Restaurant Statistics Controller (for dashboard)
+  const { RestaurantStatisticsController } = require('./controller/restaurant-statistics');
+  const restaurantStatisticsController = new RestaurantStatisticsController(prisma);
 
   // Category use cases + controller
   const createCategoryUseCase = new CreateCategoryUseCase(
@@ -572,6 +577,12 @@ function createApp() {
         feedback: '/api/v1/feedback',
         subscriptions: '/api/v1/subscriptions',
         analytics: '/api/v1/analytics',
+        'staff-dashboard': '/api/v1/staff/dashboard',
+        'staff-notifications': '/api/v1/staff/notifications',
+        'staff-chat': '/api/v1/staff/chat',
+        'staff-analytics': '/api/v1/staff/analytics',
+        'staff-tasks': '/api/v1/staff/tasks',
+        'staff-schedule': '/api/v1/staff/schedule',
         health: '/health',
       },
     });
@@ -582,6 +593,7 @@ function createApp() {
   });
 
   app.use('/api/v1/auth', createAuthRoutes(authController, authMiddleware));
+  app.use('/api/v1/restaurants', createRestaurantStatisticsRoutes(restaurantStatisticsController, authMiddleware));
   app.use('/api/v1/restaurants', createRestaurantRoutes(restaurantController, authMiddleware));
 
   app.use('/api/v1/branches', createBranchRoutes(branchController, areaController, tableController, authMiddleware));
@@ -599,7 +611,7 @@ function createApp() {
   app.use('/api/v1/staff', createStaffRoutes(staffController, authMiddleware));
   app.use('/api/v1/reservations', createReservationRoutes(reservationController, authMiddleware));
   app.use('/api/v1/orders', createOrderRoutes(orderController, authMiddleware));
-  app.use('/api/v1/public', createPublicRoutes(prisma));
+  app.use('/api/v1/public', createPublicRoutes());
   app.use('/api/v1/customer-orders', createCustomerOrderRoutes(prisma));
 
   // New API routes
@@ -608,6 +620,29 @@ function createApp() {
   app.use('/api/v1/feedback', require('./routes/v1/feedback'));
   app.use('/api/v1/subscriptions', require('./routes/v1/subscriptions'));
   app.use('/api/v1/analytics', require('./routes/v1/analytics'));
+  app.use('/api/v1/upload', require('./routes/upload'));
+
+  // Staff Dashboard routes
+  const { createStaffDashboardRoutes } = require('./routes/v1/staff-dashboard');
+  app.use('/api/v1/staff', createStaffDashboardRoutes(authMiddleware));
+
+  // Staff Notifications routes (UI only - no WebSocket)
+  app.use('/api/v1/staff/notifications', require('./routes/v1/staff-notifications'));
+
+  // Staff Chat routes (UI only - no WebSocket)
+  app.use('/api/v1/staff/chat', require('./routes/v1/staff-chat'));
+
+  // Staff Analytics routes
+  app.use('/api/v1/staff/analytics', require('./routes/v1/staff-analytics'));
+
+  // Staff Tasks routes
+  app.use('/api/v1/staff/tasks', require('./routes/v1/staff-tasks'));
+
+  // Staff Schedule routes
+  app.use('/api/v1/staff/schedule', require('./routes/v1/staff-schedule'));
+
+  // Admin routes
+  app.use('/api/v1/admin', require('./routes/v1/admin'));
 
   // 404
   app.use((req, res) => {
