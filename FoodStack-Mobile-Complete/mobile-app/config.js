@@ -8,7 +8,7 @@ export const CONFIG = {
   // - Mac/Linux: mở terminal và chạy "ifconfig" hoặc "ip addr"
   // - Tìm địa chỉ IPv4 của card mạng đang sử dụng (thường là 192.168.x.x)
   
-  BACKEND_IP: '192.168.1.133', // IP máy bạn
+  BACKEND_IP: '192.168.1.231', // IP được cập nhật mới
   BACKEND_PORT: '3000',
   
   // Các cấu hình khác

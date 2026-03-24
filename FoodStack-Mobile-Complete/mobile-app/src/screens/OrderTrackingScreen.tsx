@@ -7,6 +7,8 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Image,
+  Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -259,6 +261,79 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
           </View>
         </View>
 
+        {/* QR Code Section */}
+        <View style={styles.qrContainer}>
+          <Text style={styles.qrTitle}>Mã QR đơn hàng</Text>
+          <Text style={styles.qrDescription}>
+            Hiển thị mã này cho nhân viên khi cần hỗ trợ
+          </Text>
+          
+          <View style={styles.qrCodeWrapper}>
+            <Image
+              source={{ 
+                uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=ORDER-${orderDetails.orderNumber}-${orderDetails.id}&bgcolor=FFFFFF&color=000000&margin=10`
+              }}
+              style={styles.qrCodeImage}
+              resizeMode="contain"
+            />
+            
+            <View style={styles.qrInfo}>
+              <Text style={styles.qrOrderNumber}>#{orderDetails.orderNumber}</Text>
+              <Text style={styles.qrOrderId}>ID: {orderDetails.id.slice(0, 8)}</Text>
+              <Text style={styles.qrTableInfo}>
+                Bàn {orderDetails.table.name} - {orderDetails.table.area.name}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.qrActions}>
+            <TouchableOpacity 
+              style={styles.qrActionButton}
+              onPress={() => {
+                navigation.navigate('OrderQR', {
+                  orderId: orderDetails.id,
+                  orderNumber: orderDetails.orderNumber,
+                  tableInfo: orderDetails.table,
+                  restaurantName: orderDetails.branch.restaurant.name
+                });
+              }}
+            >
+              <Icon name="maximize" size={16} color="#E8622A" />
+              <Text style={[styles.qrActionText, { color: '#E8622A' }]}>Xem lớn</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.qrActionButton}
+              onPress={() => {
+                // Mock share functionality
+                Alert.alert(
+                  'Chia sẻ QR Code',
+                  'Chức năng chia sẻ QR code đã được kích hoạt (demo)',
+                  [{ text: 'OK' }]
+                );
+              }}
+            >
+              <Icon name="share" size={16} color="#3498DB" />
+              <Text style={styles.qrActionText}>Chia sẻ</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.qrActionButton}
+              onPress={() => {
+                // Mock save functionality
+                Alert.alert(
+                  'Lưu QR Code',
+                  'QR code đã được lưu vào thư viện ảnh (demo)',
+                  [{ text: 'OK' }]
+                );
+              }}
+            >
+              <Icon name="download" size={16} color="#27AE60" />
+              <Text style={styles.qrActionText}>Lưu ảnh</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Restaurant & Table Info */}
         <View style={styles.infoContainer}>
           <Text style={styles.infoTitle}>Thông tin đơn hàng</Text>
@@ -341,6 +416,19 @@ const OrderTrackingScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
+          {(orderDetails.status === 'PENDING' || orderDetails.status === 'CONFIRMED') && (
+            <TouchableOpacity 
+              style={styles.modifyButton}
+              onPress={() => navigation.navigate('OrderModification', {
+                orderId: orderDetails.id,
+                orderNumber: orderDetails.orderNumber
+              })}
+            >
+              <Icon name="edit" size={18} color="#3498DB" />
+              <Text style={styles.modifyButtonText}>Chỉnh sửa đơn hàng</Text>
+            </TouchableOpacity>
+          )}
+          
           {orderDetails.status === 'READY' && (
             <TouchableOpacity style={styles.actionButton}>
               <LinearGradient
@@ -534,6 +622,86 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8622A',
   },
 
+  // QR Code
+  qrContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+
+  qrTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+  },
+
+  qrDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+
+  qrCodeWrapper: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+
+  qrCodeImage: {
+    width: 150,
+    height: 150,
+    marginBottom: 12,
+  },
+
+  qrInfo: {
+    alignItems: 'center',
+  },
+
+  qrOrderNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#E8622A',
+    marginBottom: 2,
+  },
+
+  qrOrderId: {
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+
+  qrTableInfo: {
+    fontSize: 12,
+    color: '#666',
+  },
+
+  qrActions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+
+  qrActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    gap: 6,
+  },
+
+  qrActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+
   // Info
   infoContainer: {
     backgroundColor: '#fff',
@@ -707,6 +875,25 @@ const styles = StyleSheet.create({
 
   serviceButtonText: {
     color: '#E8622A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  modifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#3498DB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+
+  modifyButtonText: {
+    color: '#3498DB',
     fontSize: 14,
     fontWeight: '600',
   },

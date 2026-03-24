@@ -1,9 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
+// Mock repository - no PrismaClient needed
 const { v4: uuidv4 } = require('uuid');
 
 class OrderRepository {
   constructor(prisma) {
-    this.prisma = prisma || new PrismaClient();
+    this.prisma = prisma || null; // Mock implementation
   }
 
   async countActiveOrdersByTableId(tableId, tx) {

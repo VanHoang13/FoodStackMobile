@@ -15,6 +15,8 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { RootStackParamList } from '../types';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
+import apiClient from '../services/api';
+import AuthService from '../services/authService';
 
 type AdvancedAnalyticsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AdvancedAnalytics'>;
 
@@ -86,16 +88,25 @@ const AdvancedAnalyticsScreen: React.FC<Props> = ({ navigation }) => {
   const loadAnalyticsData = async () => {
     try {
       setLoading(true);
-      
-      const response = await fetch(`/api/v1/analytics/dashboard/restaurant-id?period=${selectedPeriod}`, {
-        headers: {
-          'Authorization': `Bearer ${/* get token */}`,
-        },
-      });
 
-      if (response.ok) {
-        const data = await response.json();
-        setAnalyticsData(data.data);
+      // Get user data to get restaurantId
+      const userData = await AuthService.getUserData();
+      const restaurantId = userData?.restaurantId;
+
+      if (!restaurantId) {
+        console.warn('No restaurantId found, cannot load analytics');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch comprehensive dashboard data from analytics API
+      const response = await apiClient.get<{ success: boolean; data: any }>(
+        `/analytics/dashboard/${restaurantId}`,
+        { params: { period: selectedPeriod } }
+      );
+
+      if (response.data.success) {
+        setAnalyticsData(response.data.data);
       }
     } catch (error) {
       console.error('Load analytics error:', error);

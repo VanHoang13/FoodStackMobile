@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList } from '../types';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
+import ServiceRequestService, { ServiceRequest } from '../services/serviceRequestService';
 
 type ServiceRequestScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ServiceRequest'>;
 
@@ -33,6 +35,8 @@ interface ServiceType {
   icon: string;
   color: string;
   urgent?: boolean;
+  type: ServiceRequest['type'];
+  priority: ServiceRequest['priority'];
 }
 
 const SERVICE_TYPES: ServiceType[] = [
@@ -43,6 +47,8 @@ const SERVICE_TYPES: ServiceType[] = [
     icon: 'user',
     color: '#3498DB',
     urgent: true,
+    type: 'ASSISTANCE',
+    priority: 'HIGH',
   },
   {
     id: 'water',
@@ -50,6 +56,8 @@ const SERVICE_TYPES: ServiceType[] = [
     description: 'Yêu cầu thêm nước uống',
     icon: 'droplet',
     color: '#2ECC71',
+    type: 'WATER',
+    priority: 'NORMAL',
   },
   {
     id: 'napkins',
@@ -57,6 +65,8 @@ const SERVICE_TYPES: ServiceType[] = [
     description: 'Yêu cầu thêm khăn giấy',
     icon: 'file-text',
     color: '#F39C12',
+    type: 'OTHER',
+    priority: 'LOW',
   },
   {
     id: 'utensils',
@@ -64,6 +74,8 @@ const SERVICE_TYPES: ServiceType[] = [
     description: 'Yêu cầu thêm đũa, thìa, dĩa',
     icon: 'utensils',
     color: '#9B59B6',
+    type: 'OTHER',
+    priority: 'NORMAL',
   },
   {
     id: 'bill',
@@ -72,6 +84,8 @@ const SERVICE_TYPES: ServiceType[] = [
     icon: 'credit-card',
     color: '#E74C3C',
     urgent: true,
+    type: 'BILL',
+    priority: 'HIGH',
   },
   {
     id: 'clean_table',
@@ -79,6 +93,8 @@ const SERVICE_TYPES: ServiceType[] = [
     description: 'Yêu cầu dọn dẹp bàn',
     icon: 'trash-2',
     color: '#34495E',
+    type: 'CLEAN',
+    priority: 'NORMAL',
   },
   {
     id: 'complaint',
@@ -87,6 +103,8 @@ const SERVICE_TYPES: ServiceType[] = [
     icon: 'alert-triangle',
     color: '#E67E22',
     urgent: true,
+    type: 'COMPLAINT',
+    priority: 'URGENT',
   },
   {
     id: 'other',
@@ -94,6 +112,8 @@ const SERVICE_TYPES: ServiceType[] = [
     description: 'Yêu cầu khác',
     icon: 'more-horizontal',
     color: '#95A5A6',
+    type: 'OTHER',
+    priority: 'NORMAL',
   },
 ];
 
@@ -101,6 +121,26 @@ const ServiceRequestScreen: React.FC<Props> = ({ navigation, route }) => {
   const { tableInfo } = route.params;
   const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [recentRequests, setRecentRequests] = useState<ServiceRequest[]>([]);
+  const [showCustomMessage, setShowCustomMessage] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+
+  useEffect(() => {
+    loadRecentRequests();
+  }, []);
+
+  const loadRecentRequests = async () => {
+    try {
+      const requests = await ServiceRequestService.getServiceRequests();
+      // Show only recent requests from this table (mock filter)
+      const tableRequests = requests
+        .filter(req => req.table === tableInfo?.table?.name)
+        .slice(0, 3);
+      setRecentRequests(tableRequests);
+    } catch (error) {
+      console.error('Error loading recent requests:', error);
+    }
+  };
 
   const handleServiceRequest = async (serviceType: ServiceType) => {
     if (!tableInfo) {
@@ -108,12 +148,30 @@ const ServiceRequestScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    // Show custom message input for certain types
+    if (serviceType.id === 'complaint' || serviceType.id === 'other') {
+      setSelectedService(serviceType.id);
+      setShowCustomMessage(true);
+      return;
+    }
+
+    await submitServiceRequest(serviceType, '');
+  };
+
+  const submitServiceRequest = async (serviceType: ServiceType, message?: string) => {
     setLoading(true);
-    setSelectedService(serviceType.id);
 
     try {
-      // Simulate API call for service request
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const request = await ServiceRequestService.createServiceRequest({
+        table: tableInfo?.table?.name || 'B01', // Fallback table name
+        customerName: 'Khách hàng', // In real app, get from auth context
+        type: serviceType.type,
+        priority: serviceType.priority,
+        message: message || serviceType.description,
+        customerPhone: '0901234567', // In real app, get from auth context
+        branchId: tableInfo?.branch?.id || 'branch_1',
+        restaurantId: tableInfo?.restaurant?.id || tableInfo?.branch?.restaurant?.id || 'restaurant_1',
+      });
 
       Alert.alert(
         'Yêu cầu đã gửi!',
@@ -121,7 +179,11 @@ const ServiceRequestScreen: React.FC<Props> = ({ navigation, route }) => {
         [
           {
             text: 'OK',
-            onPress: () => navigation.goBack(),
+            onPress: () => {
+              setShowCustomMessage(false);
+              setCustomMessage('');
+              loadRecentRequests(); // Refresh recent requests
+            },
           },
         ]
       );
@@ -135,6 +197,47 @@ const ServiceRequestScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(false);
       setSelectedService(null);
     }
+  };
+
+  const handleCustomMessageSubmit = () => {
+    const serviceType = SERVICE_TYPES.find(s => s.id === selectedService);
+    if (serviceType && customMessage.trim()) {
+      submitServiceRequest(serviceType, customMessage.trim());
+    } else {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung yêu cầu');
+    }
+  };
+
+  const getRequestStatusText = (status: ServiceRequest['status']) => {
+    switch (status) {
+      case 'PENDING': return 'Chờ xử lý';
+      case 'IN_PROGRESS': return 'Đang xử lý';
+      case 'COMPLETED': return 'Đã hoàn thành';
+      default: return status;
+    }
+  };
+
+  const getRequestStatusColor = (status: ServiceRequest['status']) => {
+    switch (status) {
+      case 'PENDING': return '#F39C12';
+      case 'IN_PROGRESS': return '#3498DB';
+      case 'COMPLETED': return '#2ECC71';
+      default: return '#95A5A6';
+    }
+  };
+
+  const formatTimeAgo = (timeString: string) => {
+    const time = new Date(timeString);
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Vừa xong';
+    if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    
+    return time.toLocaleDateString('vi-VN');
   };
 
   return (
@@ -235,21 +338,90 @@ const ServiceRequestScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         {/* Recent Requests */}
-        <View style={styles.recentContainer}>
-          <Text style={styles.recentTitle}>Yêu cầu gần đây</Text>
-          <View style={styles.recentItem}>
-            <View style={styles.recentIcon}>
-              <Icon name="droplet" size={16} color="#2ECC71" />
-            </View>
-            <View style={styles.recentInfo}>
-              <Text style={styles.recentText}>Thêm nước</Text>
-              <Text style={styles.recentTime}>5 phút trước - Đã hoàn thành</Text>
-            </View>
-            <View style={styles.recentStatus}>
-              <Icon name="check-circle" size={16} color="#2ECC71" />
+        {recentRequests.length > 0 && (
+          <View style={styles.recentContainer}>
+            <Text style={styles.recentTitle}>Yêu cầu gần đây</Text>
+            {recentRequests.map((request) => (
+              <View key={request.id} style={styles.recentItem}>
+                <View style={styles.recentIcon}>
+                  <Icon 
+                    name={SERVICE_TYPES.find(s => s.type === request.type)?.icon || 'bell'} 
+                    size={16} 
+                    color={getRequestStatusColor(request.status)} 
+                  />
+                </View>
+                <View style={styles.recentInfo}>
+                  <Text style={styles.recentText}>
+                    {SERVICE_TYPES.find(s => s.type === request.type)?.title || request.type}
+                  </Text>
+                  <Text style={styles.recentTime}>
+                    {formatTimeAgo(request.requestTime)} - {getRequestStatusText(request.status)}
+                  </Text>
+                  {request.message && (
+                    <Text style={styles.recentMessage}>{request.message}</Text>
+                  )}
+                </View>
+                <View style={styles.recentStatus}>
+                  <Icon 
+                    name={request.status === 'COMPLETED' ? 'check-circle' : 
+                          request.status === 'IN_PROGRESS' ? 'clock' : 'alert-circle'} 
+                    size={16} 
+                    color={getRequestStatusColor(request.status)} 
+                  />
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Custom Message Modal */}
+        {showCustomMessage && (
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>
+                {SERVICE_TYPES.find(s => s.id === selectedService)?.title}
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                Vui lòng mô tả chi tiết yêu cầu của bạn:
+              </Text>
+              
+              <TextInput
+                style={styles.messageInput}
+                placeholder="Nhập nội dung yêu cầu..."
+                value={customMessage}
+                onChangeText={setCustomMessage}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    setShowCustomMessage(false);
+                    setCustomMessage('');
+                    setSelectedService(null);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Hủy</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.submitButton]}
+                  onPress={handleCustomMessageSubmit}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Gửi yêu cầu</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -487,6 +659,93 @@ const styles = StyleSheet.create({
 
   recentStatus: {
     // Empty for now
+  },
+
+  recentMessage: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+
+  messageInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+
+  submitButton: {
+    backgroundColor: '#E8622A',
+  },
+
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+
+  submitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

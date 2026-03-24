@@ -15,8 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import Icon from '../components/Icon';
 import { getApiBaseUrl } from '../services/api-config';
-import { storage, restaurantApi, branchApi } from '../services/api';
+import apiClient, { storage, restaurantApi, branchApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import OwnerStaffApiService from '../services/ownerStaffApiService';
+import RestaurantStatisticsService from '../services/restaurantStatisticsService';
+import AuthService from '../services/authService';
 
 type RestaurantDashboardScreenNavigationProp = StackNavigationProp<RootStackParamList, 'RestaurantDashboard'>;
 
@@ -33,6 +36,11 @@ interface DashboardStats {
   avgServiceTime: string;
   revenueChange: number;
   ordersChange: number;
+  // Staff stats
+  totalStaff: number;
+  activeStaff: number;
+  onLeaveStaff: number;
+  averagePerformance: number;
 }
 
 interface RecentActivity {
@@ -60,6 +68,10 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     avgServiceTime: '0m',
     revenueChange: 0,
     ordersChange: 0,
+    totalStaff: 0,
+    activeStaff: 0,
+    onLeaveStaff: 0,
+    averagePerformance: 0,
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
@@ -89,11 +101,11 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
     try {
       console.log('📊 Loading restaurant dashboard data...');
       
-      // Fetch real data from backend APIs using the API service
-      const [restaurantsRes, statisticsRes, branchesRes] = await Promise.allSettled([
-        restaurantApi.getMyRestaurants(),
-        restaurantApi.getMyStatistics(),
-        branchApi.getBranches(),
+      // Fetch real data from backend APIs using the new statistics service
+      const [restaurantInfoRes, statisticsRes, staffStatsRes] = await Promise.allSettled([
+        RestaurantStatisticsService.getRestaurantInfo(),
+        RestaurantStatisticsService.getRestaurantStatistics(),
+        OwnerStaffApiService.getStaffStats(),
       ]);
 
       let todayOrders = 0;
@@ -104,18 +116,20 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
       let avgServiceTime = '0m';
       let revenueChange = 0;
       let ordersChange = 0;
+      let totalStaff = 0;
+      let activeStaff = 0;
+      let onLeaveStaff = 0;
+      let averagePerformance = 0;
 
-      // Process restaurants data to get restaurant name
-      if (restaurantsRes.status === 'fulfilled' && restaurantsRes.value.success) {
-        if (restaurantsRes.value.data && restaurantsRes.value.data.length > 0) {
-          setRestaurantName(restaurantsRes.value.data[0].name);
-          console.log('✅ Restaurant info loaded:', restaurantsRes.value.data[0].name);
-        }
+      // Process restaurant info to get restaurant name
+      if (restaurantInfoRes.status === 'fulfilled' && restaurantInfoRes.value.length > 0) {
+        setRestaurantName(restaurantInfoRes.value[0].name);
+        console.log('✅ Restaurant info loaded:', restaurantInfoRes.value[0].name);
       }
 
-      // Process statistics data
-      if (statisticsRes.status === 'fulfilled' && statisticsRes.value.success) {
-        const stats = statisticsRes.value.data;
+      // Process statistics data from new API
+      if (statisticsRes.status === 'fulfilled') {
+        const stats = statisticsRes.value;
         todayOrders = stats.todayOrders || 0;
         todayRevenue = stats.todayRevenue || 0;
         pendingOrders = stats.pendingOrders || 0;
@@ -124,9 +138,9 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         avgServiceTime = stats.avgServiceTime || '0m';
         revenueChange = stats.revenueChange || 0;
         ordersChange = stats.ordersChange || 0;
-        console.log('✅ Restaurant statistics loaded:', stats);
+        console.log('✅ Restaurant statistics loaded from new API:', stats);
       } else {
-        console.log('⚠️ Statistics API not available, using mock data');
+        console.log('⚠️ Statistics API not available, using fallback data');
         // Use demo data for testing
         todayOrders = 12;
         todayRevenue = 450000;
@@ -138,6 +152,23 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         ordersChange = 8.2;
       }
 
+      // Process staff statistics from API
+      if (staffStatsRes.status === 'fulfilled') {
+        const staffStats = staffStatsRes.value;
+        totalStaff = staffStats.totalStaff || 0;
+        activeStaff = staffStats.activeStaff || 0;
+        onLeaveStaff = staffStats.onLeaveStaff || 0;
+        averagePerformance = staffStats.averagePerformance || 0;
+        console.log('✅ Staff statistics loaded from API:', staffStats);
+      } else {
+        console.log('⚠️ Staff statistics API not available, using mock data');
+        // Fallback to demo data
+        totalStaff = 8;
+        activeStaff = 6;
+        onLeaveStaff = 1;
+        averagePerformance = 87.5;
+      }
+
       setStats({
         todayOrders,
         todayRevenue,
@@ -147,21 +178,68 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         avgServiceTime,
         revenueChange,
         ordersChange,
+        totalStaff,
+        activeStaff,
+        onLeaveStaff,
+        averagePerformance,
       });
 
-      // Set recent activity (mock data for now)
-      setRecentActivity([
-        { id: '1', type: 'order', title: 'Đơn hàng mới #402', time: '2 phút trước', amount: '125.000đ' },
-        { id: '2', type: 'service', title: 'Yêu cầu phục vụ bàn 4', time: '5 phút trước' },
-        { id: '3', type: 'payment', title: 'Thanh toán #398', time: '12 phút trước', amount: '89.000đ' },
-      ]);
+      // Fetch analytics dashboard for recent activity & top items
+      const userData = await AuthService.getUserData();
+      const restaurantId = userData?.restaurantId;
+      if (restaurantId) {
+        try {
+          const analyticsRes = await apiClient.get<{ success: boolean; data: any }>(
+            `/analytics/dashboard/${restaurantId}`,
+            { params: { period: '1d' } }
+          );
+          const dashData = analyticsRes.data.data || {};
 
-      // Set top items (mock data for now)
-      setTopItems([
-        { name: 'Phở bò đặc biệt', sold: 342, progress: 85 },
-        { name: 'Cơm tấm sườn nướng', sold: 289, progress: 72 },
-        { name: 'Cà phê sữa đá', sold: 215, progress: 54 },
-      ]);
+          // Map top selling items from analytics
+          if (Array.isArray(dashData.menu?.topSellingItems) && dashData.menu.topSellingItems.length > 0) {
+            const maxQty = dashData.menu.topSellingItems[0].totalQuantity || 1;
+            setTopItems(
+              dashData.menu.topSellingItems.slice(0, 3).map((item: any) => ({
+                name: item.itemName || item.name || 'Unknown',
+                sold: item.totalQuantity || 0,
+                progress: Math.round(((item.totalQuantity || 0) / maxQty) * 100),
+              }))
+            );
+          } else {
+            setTopItems([]);
+          }
+
+          // Map recent orders as recent activity
+          if (Array.isArray(dashData.recentOrders) && dashData.recentOrders.length > 0) {
+            setRecentActivity(
+              dashData.recentOrders.slice(0, 5).map((order: any) => {
+                const createdAt = new Date(order.createdAt || order.created_at);
+                const diffMs = Date.now() - createdAt.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                const timeText = diffMins < 60
+                  ? `${diffMins} phút trước`
+                  : `${Math.floor(diffMins / 60)} giờ trước`;
+                return {
+                  id: order.id || order.orderNumber,
+                  type: 'order' as const,
+                  title: `Đơn hàng #${order.orderNumber || order.id?.slice(-4) || '---'}`,
+                  time: timeText,
+                  amount: order.total ? `${order.total.toLocaleString('vi-VN')}đ` : undefined,
+                };
+              })
+            );
+          } else {
+            setRecentActivity([]);
+          }
+        } catch (analyticsErr) {
+          console.warn('Analytics dashboard not available:', analyticsErr);
+          setRecentActivity([]);
+          setTopItems([]);
+        }
+      } else {
+        setRecentActivity([]);
+        setTopItems([]);
+      }
 
       console.log('📊 Restaurant dashboard data loaded successfully');
     } catch (error) {
@@ -177,6 +255,10 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
         avgServiceTime: '14m 20s',
         revenueChange: 12.5,
         ordersChange: 8.2,
+        totalStaff: 8,
+        activeStaff: 6,
+        onLeaveStaff: 1,
+        averagePerformance: 87.5,
       });
 
       setRecentActivity([
@@ -200,7 +282,11 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleMenuManagement = () => {
-    navigation.navigate('MenuManagement');
+    navigation.navigate('OwnerMenuManagement');
+  };
+
+  const handleBranchManagement = () => {
+    navigation.navigate('OwnerBranchManagement');
   };
 
   const handleOrderManagement = () => {
@@ -326,6 +412,32 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.statLabel}>Món ăn</Text>
             </View>
           </View>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, styles.statCardStaff]}>
+              <Icon name="users" size={24} color="#9C27B0" />
+              <Text style={styles.statNumber}>{stats.totalStaff}</Text>
+              <Text style={styles.statLabel}>Tổng nhân viên</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardActive]}>
+              <Icon name="user-check" size={24} color="#4CAF50" />
+              <Text style={styles.statNumber}>{stats.activeStaff}</Text>
+              <Text style={styles.statLabel}>Đang làm việc</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, styles.statCardLeave]}>
+              <Icon name="user-x" size={24} color="#FF9800" />
+              <Text style={styles.statNumber}>{stats.onLeaveStaff}</Text>
+              <Text style={styles.statLabel}>Nghỉ phép</Text>
+            </View>
+            <View style={[styles.statCard, styles.statCardPerformance]}>
+              <Icon name="trending-up" size={24} color="#2196F3" />
+              <Text style={styles.statNumber}>{stats.averagePerformance.toFixed(1)}%</Text>
+              <Text style={styles.statLabel}>Hiệu suất TB</Text>
+            </View>
+          </View>
         </Animated.View>
 
         {/* Recent Activity */}
@@ -414,7 +526,7 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 colors={['#FF7A30', '#E8622A']}
                 style={styles.actionGradient}
               >
-                <Icon name="orders" size={32} color="#fff" />
+                <Icon name="orders" size={28} color="#fff" />
                 <Text style={styles.actionTitle}>Quản lý đơn hàng</Text>
                 <Text style={styles.actionSubtitle}>Xem và xử lý đơn hàng</Text>
               </LinearGradient>
@@ -429,9 +541,129 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 colors={['#4CAF50', '#45A049']}
                 style={styles.actionGradient}
               >
-                <Icon name="menu" size={32} color="#fff" />
+                <Icon name="menu" size={28} color="#fff" />
                 <Text style={styles.actionTitle}>Quản lý menu</Text>
                 <Text style={styles.actionSubtitle}>Thêm, sửa món ăn</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerStaffManagement')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#2196F3', '#1976D2']}
+                style={styles.actionGradient}
+              >
+                <Icon name="users" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Quản lý nhân viên</Text>
+                <Text style={styles.actionSubtitle}>Nhân sự & hiệu suất</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerTableManagement')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']}
+                style={styles.actionGradient}
+              >
+                <Icon name="grid" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Quản lý bàn</Text>
+                <Text style={styles.actionSubtitle}>Trạng thái & đặt bàn</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={handleBranchManagement}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#607D8B', '#455A64']}
+                style={styles.actionGradient}
+              >
+                <Icon name="map-pin" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Quản lý chi nhánh</Text>
+                <Text style={styles.actionSubtitle}>Địa điểm & hoạt động</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerInventory')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#9C27B0', '#7B1FA2']}
+                style={styles.actionGradient}
+              >
+                <Icon name="package" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Quản lý kho</Text>
+                <Text style={styles.actionSubtitle}>Nguyên liệu & tồn kho</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerNotification')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#F44336', '#D32F2F']}
+                style={styles.actionGradient}
+              >
+                <Icon name="bell" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Thông báo</Text>
+                <Text style={styles.actionSubtitle}>Cảnh báo & tin nhắn</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerChat')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#00BCD4', '#0097A7']}
+                style={styles.actionGradient}
+              >
+                <Icon name="message-circle" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Chat nhân viên</Text>
+                <Text style={styles.actionSubtitle}>Giao tiếp nội bộ</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => navigation.navigate('OwnerStaffAnalytics')}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#673AB7', '#512DA8']}
+                style={styles.actionGradient}
+              >
+                <Icon name="bar-chart-2" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Phân tích NV</Text>
+                <Text style={styles.actionSubtitle}>Hiệu suất & báo cáo</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={handleStatistics}
+              activeOpacity={0.7}
+            >
+              <LinearGradient
+                colors={['#795548', '#5D4037']}
+                style={styles.actionGradient}
+              >
+                <Icon name="chart" size={28} color="#fff" />
+                <Text style={styles.actionTitle}>Thống kê</Text>
+                <Text style={styles.actionSubtitle}>Báo cáo doanh thu</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -444,24 +676,9 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 colors={['#FF5722', '#D84315']}
                 style={styles.actionGradient}
               >
-                <Icon name="chef-hat" size={32} color="#fff" />
+                <Icon name="chef-hat" size={28} color="#fff" />
                 <Text style={styles.actionTitle}>Màn hình bếp</Text>
                 <Text style={styles.actionSubtitle}>Quản lý đơn hàng bếp</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={handleStatistics}
-              activeOpacity={0.7}
-            >
-              <LinearGradient
-                colors={['#2196F3', '#1976D2']}
-                style={styles.actionGradient}
-              >
-                <Icon name="chart" size={32} color="#fff" />
-                <Text style={styles.actionTitle}>Thống kê</Text>
-                <Text style={styles.actionSubtitle}>Báo cáo doanh thu</Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -471,10 +688,10 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={['#9C27B0', '#7B1FA2']}
+                colors={['#607D8B', '#455A64']}
                 style={styles.actionGradient}
               >
-                <Icon name="bell" size={32} color="#fff" />
+                <Icon name="headphones" size={28} color="#fff" />
                 <Text style={styles.actionTitle}>Yêu cầu dịch vụ</Text>
                 <Text style={styles.actionSubtitle}>Xử lý yêu cầu khách</Text>
               </LinearGradient>
@@ -486,10 +703,10 @@ const RestaurantDashboardScreen: React.FC<Props> = ({ navigation }) => {
               activeOpacity={0.7}
             >
               <LinearGradient
-                colors={['#607D8B', '#455A64']}
+                colors={['#9E9E9E', '#757575']}
                 style={styles.actionGradient}
               >
-                <Icon name="settings" size={32} color="#fff" />
+                <Icon name="settings" size={28} color="#fff" />
                 <Text style={styles.actionTitle}>Cài đặt</Text>
                 <Text style={styles.actionSubtitle}>Thông tin nhà hàng</Text>
               </LinearGradient>
@@ -596,6 +813,26 @@ const styles = StyleSheet.create({
   },
 
   statCardInfo: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+
+  statCardStaff: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#9C27B0',
+  },
+
+  statCardActive: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+
+  statCardLeave: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9800',
+  },
+
+  statCardPerformance: {
     borderLeftWidth: 4,
     borderLeftColor: '#2196F3',
   },

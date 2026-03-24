@@ -13,14 +13,15 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = createApp();
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('╔════════════════════════════════════════╗');
   console.log('║     FoodStack API Server Started      ║');
   console.log('╚════════════════════════════════════════╝');
   console.log('');
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${NODE_ENV}`);
-  console.log(`🔗 URL: http://localhost:${PORT}`);
+  console.log(`🔗 Local URL: http://localhost:${PORT}`);
+  console.log(`🌐 Network URL: http://0.0.0.0:${PORT}`);
   console.log(`📚 API Docs: http://localhost:${PORT}/api/v1`);
   console.log('');
   console.log('Available endpoints:');

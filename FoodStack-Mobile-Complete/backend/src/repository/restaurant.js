@@ -6,8 +6,8 @@
 const { prisma } = require('../config/database.config');
 
 class RestaurantRepository {
-  constructor(prismaClient) {
-    this.prisma = prismaClient || prisma;
+  constructor() {
+    this.prisma = prisma; // Use mock prisma from config
   }
 
   async findById(id) {

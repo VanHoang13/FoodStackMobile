@@ -722,6 +722,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+
+  // Bottom Navigation
+  bottomNav: {
+    height: 68,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 4,
+  },
+  
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 3,
+  },
+  
+  activeNavItem: {
+    // Active state styling handled by individual elements
+  },
+  
+  navText: {
+    fontSize: 10,
+    color: '#aaa',
+    fontWeight: '700',
+  },
+  
+  activeNavText: {
+    color: '#E8622A',
+  },
 });
 
 export default KitchenDisplayScreen;

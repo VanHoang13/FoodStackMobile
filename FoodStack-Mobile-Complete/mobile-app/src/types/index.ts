@@ -154,6 +154,12 @@ export type RootStackParamList = {
   
   // Test Screen
   APITest: undefined;
+  TestMenu: undefined;
+  SimpleMenu: undefined;
+  QRTest: undefined;
+  QRGallery: undefined;
+  TestData: undefined;
+  MenuManagementTest: undefined;
   
   // Main App Screens
   Home: undefined;
@@ -186,6 +192,15 @@ export type RootStackParamList = {
     orderId: string;
     orderNumber?: string;
   };
+  OrderQR: {
+    orderId: string;
+    orderNumber: string;
+    tableInfo?: {
+      name: string;
+      area: { name: string };
+    };
+    restaurantName?: string;
+  };
   OrderStatus: {
     orderId: string;
     sessionToken?: string;
@@ -195,6 +210,7 @@ export type RootStackParamList = {
     orderId: string;
     sessionToken?: string;
     tableInfo?: TableInfo;
+    totalAmount?: number;
   };
   OrderHistory: undefined;
   Profile: undefined;
@@ -229,6 +245,66 @@ export type RootStackParamList = {
   };
   OrderDetails: {
     order: any; // Define proper type later
+  };
+
+  // Staff Screens
+  StaffDashboard: undefined;
+  StaffTableManagement: undefined;
+  StaffProfile: undefined;
+  StaffNotification: undefined;
+  StaffChat: undefined;
+  StaffOrderHistory: undefined;
+  StaffInventory: undefined;
+  StaffAnalytics: undefined;
+  StaffPerformance: undefined;
+  StaffTasks: undefined;
+  StaffSchedule: undefined;
+  StaffTraining: undefined;
+  StaffOrderManagement: undefined;
+  StaffServiceRequests: undefined;
+  StaffWorkflowDebug: undefined;
+
+  // Owner Screens
+  OwnerNotification: undefined;
+  OwnerChat: undefined;
+  OwnerStaffManagement: {
+    updatedStaff?: any; // Updated staff data
+    newStaff?: any; // New staff data from create screen
+  };
+  OwnerTableManagement: undefined;
+  OwnerBranchManagement: undefined;
+  OwnerInventory: undefined;
+  OwnerMenuManagement: undefined;
+  OwnerStaffDetail: {
+    staff: any; // Define proper Staff type later
+    updated?: boolean;
+  };
+  OwnerStaffEdit: {
+    staff: any; // Define proper Staff type later
+  };
+  OwnerStaffCreate: undefined;
+  OwnerStaffAnalytics: undefined;
+
+  // Manager Screens
+  ManagerDashboard: undefined;
+  ManagerStaffManagement: undefined;
+  ManagerProfile: undefined;
+  ManagerOrderManagement: undefined;
+  ManagerTableManagement: undefined;
+  ManagerShiftManagement: undefined;
+  ManagerReports: undefined;
+  ManagerStaffDetail: {
+    staff: any; // Define proper Staff type later
+  };
+
+  // Customer Advanced Screens
+  Notification: undefined;
+  Loyalty: undefined;
+  PromoCode: undefined;
+  Wallet: undefined;
+  OrderModification: {
+    orderId: string;
+    orderNumber: string;
   };
 
   // Admin Screens
@@ -288,4 +364,91 @@ export interface ForgotPasswordRequest {
 export interface VerifyEmailOtpRequest {
   email: string;
   otp: string;
+}
+
+// Wallet Types
+export interface WalletTransaction {
+  id: string;
+  wallet_id: string;
+  type: 'CREDIT' | 'DEBIT';
+  amount: number;
+  description: string;
+  reference_id?: string;
+  reference_type?: 'ORDER' | 'TOP_UP' | 'REFUND' | 'BONUS';
+  balance_before: number;
+  balance_after: number;
+  created_at: string;
+}
+
+export interface Wallet {
+  id: string;
+  user_id: string;
+  balance: number;
+  transactions: WalletTransaction[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Loyalty Types
+export interface LoyaltyTier {
+  id: string;
+  name: string;
+  min_points: number;
+  max_points?: number;
+  benefits: string[];
+  color: string;
+  icon: string;
+}
+
+export interface LoyaltyProgram {
+  id: string;
+  user_id: string;
+  current_points: number;
+  total_earned_points: number;
+  current_tier: LoyaltyTier;
+  next_tier?: LoyaltyTier;
+  points_to_next_tier?: number;
+  transactions: LoyaltyTransaction[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LoyaltyTransaction {
+  id: string;
+  loyalty_program_id: string;
+  type: 'EARN' | 'REDEEM' | 'EXPIRED' | 'BONUS';
+  points: number;
+  description: string;
+  reference_id?: string;
+  reference_type?: 'ORDER' | 'REDEMPTION' | 'BONUS' | 'EXPIRED';
+  order_amount?: number;
+  created_at: string;
+  expires_at?: string;
+}
+
+// Payment Types
+export interface PaymentMethod {
+  id: string;
+  type: 'WALLET' | 'CASH' | 'CARD' | 'BANK_TRANSFER';
+  name: string;
+  icon: string;
+  enabled: boolean;
+}
+
+export interface PaymentRequest {
+  order_id: string;
+  payment_method: string;
+  amount: number;
+  wallet_amount?: number;
+  cash_amount?: number;
+}
+
+export interface PaymentResult {
+  id: string;
+  order_id: string;
+  payment_method: string;
+  amount: number;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  qr_code_data?: string;
+  created_at: string;
 }

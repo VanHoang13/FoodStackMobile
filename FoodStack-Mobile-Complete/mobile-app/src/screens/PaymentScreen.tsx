@@ -5,16 +5,20 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
   Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, PaymentMethod, PaymentResult, Wallet, LoyaltyProgram } from '../types';
 import { theme } from '../theme';
 import Icon from '../components/Icon';
+import { useCart } from '../contexts/CartContext';
+import { WalletService } from '../services/walletService';
+import { LoyaltyService } from '../services/loyaltyService';
+import OrderIntegrationService from '../services/orderIntegrationService';
 
 type PaymentScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Payment'>;
 
@@ -25,194 +29,200 @@ interface Props {
       orderId: string;
       sessionToken?: string;
       tableInfo?: any;
+      totalAmount?: number; // Add totalAmount param
     };
   };
 }
 
-interface PaymentMethod {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  available: boolean;
-}
-
-interface OrderSummary {
-  id: string;
-  orderNumber: string;
-  subtotal: number;
-  tax: number;
-  serviceCharge: number;
-  total: number;
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-    subtotal: number;
-  }>;
-}
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 'payos',
-    name: 'PayOS',
-    description: 'Thanh toán qua PayOS (QR Code)',
-    icon: 'credit-card',
-    color: '#E8622A',
-    available: true,
-  },
-  {
-    id: 'momo',
-    name: 'MoMo',
-    description: 'Ví điện tử MoMo',
-    icon: 'smartphone',
-    color: '#D82D8B',
-    available: true,
-  },
-  {
-    id: 'zalopay',
-    name: 'ZaloPay',
-    description: 'Ví điện tử ZaloPay',
-    icon: 'zap',
-    color: '#0068FF',
-    available: true,
-  },
-  {
-    id: 'banking',
-    name: 'Internet Banking',
-    description: 'Chuyển khoản ngân hàng',
-    icon: 'home',
-    color: '#27AE60',
-    available: true,
-  },
-  {
-    id: 'cash',
-    name: 'Tiền mặt',
-    description: 'Thanh toán trực tiếp tại quầy',
-    icon: 'dollar-sign',
-    color: '#F39C12',
-    available: true,
-  },
-];
-
 const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
-  const { orderId, sessionToken, tableInfo } = route.params;
+  const { orderId, tableInfo, totalAmount: paramTotalAmount } = route.params;
+  const { totalAmount: cartTotalAmount, clearCart, items } = useCart(); // Get total from cart
   const [loading, setLoading] = useState(false);
-  const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<string>('WALLET');
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [loyaltyProgram, setLoyaltyProgram] = useState<LoyaltyProgram | null>(null);
+  
+  // Use param totalAmount first, then cart totalAmount, then fallback
+  const orderAmount = paramTotalAmount || cartTotalAmount || 150000;
+  
+  // Debug logging
+  console.log('🛒 Payment Debug:', {
+    paramTotalAmount,
+    cartTotalAmount,
+    finalOrderAmount: orderAmount,
+    itemsCount: items?.length || 0
+  });
+
+  // Mock payment methods
+  const paymentMethods: PaymentMethod[] = [
+    {
+      id: 'WALLET',
+      type: 'WALLET',
+      name: 'Ví FoodStack',
+      icon: 'wallet',
+      enabled: true
+    },
+    {
+      id: 'CASH',
+      type: 'CASH', 
+      name: 'Tiền mặt',
+      icon: 'dollar-sign',
+      enabled: true
+    }
+  ];
 
   useEffect(() => {
-    loadOrderSummary();
-  }, [orderId]);
+    loadWalletAndLoyalty();
+  }, []);
 
-  const loadOrderSummary = async () => {
-    setLoading(true);
+  const loadWalletAndLoyalty = async () => {
     try {
-      // Simulate API call to get order summary
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setLoading(true);
       
-      // Mock order data
-      setOrderSummary({
-        id: orderId,
-        orderNumber: 'ORD-20240322-001',
-        subtotal: 450000,
-        tax: 45000,
-        serviceCharge: 22500,
-        total: 517500,
-        items: [
-          { name: 'Phở Bò Tái', quantity: 2, price: 85000, subtotal: 170000 },
-          { name: 'Gỏi Cuốn Tôm', quantity: 1, price: 65000, subtotal: 65000 },
-          { name: 'Chả Cá Lã Vọng', quantity: 1, price: 120000, subtotal: 120000 },
-          { name: 'Trà Đá', quantity: 3, price: 15000, subtotal: 45000 },
-          { name: 'Bia Saigon', quantity: 2, price: 25000, subtotal: 50000 },
-        ],
-      });
+      // Load wallet and loyalty data from AsyncStorage
+      const [walletData, loyaltyData] = await Promise.all([
+        WalletService.getWallet(),
+        LoyaltyService.getLoyaltyProgram()
+      ]);
+
+      setWallet(walletData);
+      setLoyaltyProgram(loyaltyData);
     } catch (error) {
-      console.error('❌ Load order summary error:', error);
-      Alert.alert('Lỗi', 'Không thể tải thông tin đơn hàng');
+      console.error('Error loading wallet and loyalty data:', error);
+      Alert.alert('Lỗi', 'Không thể tải thông tin tài khoản. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const processPayment = async () => {
+    if (!wallet) return;
+
+    if (selectedMethod === 'WALLET' && wallet.balance < orderAmount) {
+      Alert.alert(
+        'Số dư không đủ',
+        `Số dư ví: ${formatPrice(wallet.balance)}\nSố tiền cần thanh toán: ${formatPrice(orderAmount)}`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Generate payment QR code
+      const paymentId = `PAY${Date.now()}`;
+      const qrData = `PAYMENT-${paymentId}-${orderAmount}`;
+
+      const mockPaymentResult: PaymentResult = {
+        id: paymentId,
+        order_id: orderId,
+        payment_method: selectedMethod,
+        amount: orderAmount,
+        status: 'PENDING',
+        qr_code_data: qrData,
+        created_at: new Date().toISOString()
+      };
+
+      setPaymentResult(mockPaymentResult);
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể xử lý thanh toán. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePayment = async (method: PaymentMethod) => {
-    if (!orderSummary) return;
+  const completePayment = async () => {
+    if (!paymentResult || !wallet || !loyaltyProgram) return;
 
-    setSelectedMethod(method.id);
-    setPaymentLoading(true);
+    setLoading(true);
 
     try {
-      if (method.id === 'cash') {
-        // Cash payment - just show confirmation
-        Alert.alert(
-          'Thanh toán tiền mặt',
-          'Vui lòng thanh toán tại quầy. Nhân viên sẽ hỗ trợ bạn.',
-          [
-            {
-              text: 'Đã hiểu',
-              onPress: () => {
-                navigation.navigate('OrderTracking', { 
-                  orderId: orderSummary.id,
-                  orderNumber: orderSummary.orderNumber 
-                });
-              },
-            },
-          ]
+      // Simulate payment completion
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      let updatedWallet = wallet;
+      let updatedLoyalty = loyaltyProgram;
+
+      // Update wallet balance if paying with wallet
+      if (selectedMethod === 'WALLET') {
+        updatedWallet = await WalletService.deductAmount(
+          orderAmount, 
+          orderId, 
+          `Thanh toán đơn hàng #${orderId.slice(0, 8)}`
         );
-        return;
       }
 
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Add loyalty points
+      const loyaltyResult = await LoyaltyService.addPoints(
+        LoyaltyService.calculatePointsFromAmount(orderAmount),
+        orderId,
+        orderAmount,
+        `Tích điểm từ đơn hàng #${orderId.slice(0, 8)}`
+      );
 
-      if (method.id === 'payos') {
-        // PayOS payment - simulate QR code generation
-        const paymentUrl = `https://pay.payos.vn/web/${orderId}`;
-        
+      updatedLoyalty = loyaltyResult.loyalty;
+
+      // Update states
+      setWallet(updatedWallet);
+      setLoyaltyProgram(updatedLoyalty);
+
+      // Update payment status
+      setPaymentResult({
+        ...paymentResult,
+        status: 'SUCCESS'
+      });
+
+      // Show tier upgrade alert if applicable
+      if (loyaltyResult.tierUpgraded && loyaltyResult.newTier) {
         Alert.alert(
-          'Thanh toán PayOS',
-          'Bạn sẽ được chuyển đến trang thanh toán PayOS',
-          [
-            {
-              text: 'Hủy',
-              style: 'cancel',
-            },
-            {
-              text: 'Tiếp tục',
-              onPress: () => {
-                Linking.openURL(paymentUrl).catch(() => {
-                  Alert.alert('Lỗi', 'Không thể mở trang thanh toán');
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        // Other payment methods
-        Alert.alert(
-          'Thanh toán thành công!',
-          `Đơn hàng #${orderSummary.orderNumber} đã được thanh toán qua ${method.name}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('OrderTracking', { 
-                  orderId: orderSummary.id,
-                  orderNumber: orderSummary.orderNumber 
-                });
-              },
-            },
-          ]
+          '🎉 Chúc mừng!',
+          `Bạn đã lên hạng ${loyaltyResult.newTier.name}!\n\nLợi ích mới:\n${loyaltyResult.newTier.benefits.map(b => `• ${b}`).join('\n')}`,
+          [{ text: 'Tuyệt vời!' }]
         );
       }
+
+      // Show success message
+      const earnedPoints = LoyaltyService.calculatePointsFromAmount(orderAmount);
+      
+      // Update order with actual orderId for tracking
+      try {
+        await OrderIntegrationService.syncOrderStatus(orderId, 'CONFIRMED');
+        console.log('✅ Order ID synced for tracking:', orderId);
+      } catch (syncError) {
+        console.error('Error syncing order ID:', syncError);
+      }
+      
+      Alert.alert(
+        '✅ Thanh toán thành công!',
+        `Đã thanh toán: ${formatPrice(orderAmount)}\n` +
+        `Điểm tích lũy: +${earnedPoints} điểm\n` +
+        `Tổng điểm: ${updatedLoyalty.current_points} điểm` +
+        (selectedMethod === 'WALLET' ? `\nSố dư ví: ${formatPrice(updatedWallet.balance)}` : ''),
+        [
+          {
+            text: 'Xem đơn hàng',
+            onPress: () => {
+              // Clear cart after successful payment
+              clearCart();
+              
+              navigation.navigate('OrderTracking', {
+                orderId: orderId,
+                orderNumber: `ORD${Math.floor(Math.random() * 10000)}`
+              });
+            }
+          }
+        ]
+      );
+
     } catch (error) {
-      console.error('❌ Payment error:', error);
-      Alert.alert('Lỗi thanh toán', 'Không thể xử lý thanh toán, vui lòng thử lại');
+      console.error('Payment completion error:', error);
+      Alert.alert('Lỗi', 'Không thể hoàn thành thanh toán. Vui lòng thử lại.');
     } finally {
-      setPaymentLoading(false);
-      setSelectedMethod(null);
+      setLoading(false);
     }
   };
 
@@ -220,31 +230,177 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
     return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
   };
 
-  if (loading) {
+  const getQRUrl = (data: string) => {
+    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}&bgcolor=FFFFFF&color=27AE60&margin=10`;
+  };
+  if (paymentResult) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#E8622A" />
-          <Text style={styles.loadingText}>Đang tải thông tin thanh toán...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!orderSummary) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Không thể tải đơn hàng</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadOrderSummary}>
-            <Text style={styles.retryButtonText}>Thử lại</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Icon name="back" size={20} color="#333" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {paymentResult.status === 'SUCCESS' ? 'Thanh toán thành công' : 'Thanh toán'}
+          </Text>
+          <View style={styles.headerRight} />
         </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Payment Status */}
+          <View style={styles.statusContainer}>
+            {paymentResult.status === 'SUCCESS' ? (
+              <LinearGradient
+                colors={['#27AE60', '#2ECC71']}
+                style={styles.statusGradient}
+              >
+                <Icon name="check-circle" size={48} color="#fff" />
+                <Text style={styles.statusTitle}>Thanh toán thành công!</Text>
+                <Text style={styles.statusSubtitle}>
+                  Cảm ơn bạn đã sử dụng dịch vụ
+                </Text>
+              </LinearGradient>
+            ) : (
+              <LinearGradient
+                colors={['#F39C12', '#E67E22']}
+                style={styles.statusGradient}
+              >
+                <Icon name="clock" size={48} color="#fff" />
+                <Text style={styles.statusTitle}>Chờ xác nhận thanh toán</Text>
+                <Text style={styles.statusSubtitle}>
+                  Vui lòng hiển thị mã QR cho nhân viên
+                </Text>
+              </LinearGradient>
+            )}
+          </View>
+
+          {/* QR Code */}
+          <View style={styles.qrContainer}>
+            <Text style={styles.qrTitle}>
+              {paymentResult.status === 'SUCCESS' ? 'Mã QR đơn hàng' : 'Mã QR thanh toán'}
+            </Text>
+            
+            <View style={styles.qrWrapper}>
+              <Image
+                source={{ uri: getQRUrl(paymentResult.qr_code_data || '') }}
+                style={styles.qrImage}
+                resizeMode="contain"
+              />
+              
+              <View style={styles.qrOverlay}>
+                <View style={[styles.qrCorner, styles.qrCornerTopLeft]} />
+                <View style={[styles.qrCorner, styles.qrCornerTopRight]} />
+                <View style={[styles.qrCorner, styles.qrCornerBottomLeft]} />
+                <View style={[styles.qrCorner, styles.qrCornerBottomRight]} />
+              </View>
+            </View>
+
+            <View style={styles.qrInfo}>
+              <Text style={styles.qrPaymentId}>#{paymentResult.id}</Text>
+              <Text style={styles.qrAmount}>{formatPrice(paymentResult.amount)}</Text>
+              <Text style={styles.qrMethod}>
+                {paymentMethods.find(m => m.id === paymentResult.payment_method)?.name}
+              </Text>
+            </View>
+          </View>
+
+          {/* Payment Details */}
+          <View style={styles.detailsContainer}>
+            <Text style={styles.detailsTitle}>Chi tiết thanh toán</Text>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Mã đơn hàng</Text>
+              <Text style={styles.detailValue}>#{paymentResult.order_id.slice(0, 8)}</Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Số tiền</Text>
+              <Text style={styles.detailValue}>{formatPrice(paymentResult.amount)}</Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Phương thức</Text>
+              <Text style={styles.detailValue}>
+                {paymentMethods.find(m => m.id === paymentResult.payment_method)?.name}
+              </Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Thời gian</Text>
+              <Text style={styles.detailValue}>
+                {new Date(paymentResult.created_at).toLocaleString('vi-VN')}
+              </Text>
+            </View>
+          </View>
+
+          {/* Wallet & Loyalty Info */}
+          {wallet && loyaltyProgram && (
+            <View style={styles.rewardsContainer}>
+              <Text style={styles.rewardsTitle}>Thông tin tài khoản</Text>
+              
+              {/* Wallet Balance */}
+              <View style={styles.walletCard}>
+                <View style={styles.walletHeader}>
+                  <Icon name="wallet" size={20} color="#E8622A" />
+                  <Text style={styles.walletTitle}>Số dư ví</Text>
+                </View>
+                <Text style={styles.walletBalance}>{formatPrice(wallet.balance)}</Text>
+              </View>
+
+              {/* Loyalty Points */}
+              <View style={styles.loyaltyCard}>
+                <View style={styles.loyaltyHeader}>
+                  <Icon name={loyaltyProgram.current_tier.icon} size={20} color={loyaltyProgram.current_tier.color} />
+                  <Text style={styles.loyaltyTitle}>Hạng {loyaltyProgram.current_tier.name}</Text>
+                </View>
+                
+                <Text style={styles.loyaltyPoints}>
+                  {loyaltyProgram.current_points.toLocaleString()} điểm
+                </Text>
+                
+                {loyaltyProgram.next_tier && loyaltyProgram.points_to_next_tier && (
+                  <Text style={styles.loyaltyNext}>
+                    Còn {loyaltyProgram.points_to_next_tier} điểm để lên hạng {loyaltyProgram.next_tier.name}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Action Button */}
+          {paymentResult.status === 'PENDING' && (
+            <View style={styles.actionContainer}>
+              <TouchableOpacity
+                style={styles.completeButton}
+                onPress={completePayment}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={['#27AE60', '#2ECC71']}
+                  style={styles.completeButtonGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Icon name="check" size={20} color="#fff" />
+                      <Text style={styles.completeButtonText}>Hoàn thành thanh toán</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
       </SafeAreaView>
     );
   }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -262,113 +418,151 @@ const PaymentScreen: React.FC<Props> = ({ navigation, route }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Order Summary */}
         <View style={styles.summaryContainer}>
-          <Text style={styles.summaryTitle}>Đơn hàng #{orderSummary.orderNumber}</Text>
+          <Text style={styles.summaryTitle}>Tổng đơn hàng</Text>
+          <Text style={styles.summaryAmount}>{formatPrice(orderAmount)}</Text>
           
-          {/* Table Info */}
-          {tableInfo && (
-            <View style={styles.tableInfo}>
-              <Icon name="map-pin" size={16} color="#666" />
-              <Text style={styles.tableInfoText}>
-                Bàn {tableInfo.table?.name} - {tableInfo.restaurant?.name || tableInfo.branch?.restaurant?.name}
+          {(paramTotalAmount === undefined && cartTotalAmount === 0) && (
+            <View style={styles.warningContainer}>
+              <Icon name="alert-triangle" size={16} color="#F39C12" />
+              <Text style={styles.warningText}>
+                Cart trống - Sử dụng số tiền test: {formatPrice(orderAmount)}
               </Text>
             </View>
           )}
-
-          {/* Order Items */}
-          <View style={styles.itemsList}>
-            {orderSummary.items.map((item, index) => (
-              <View key={index} style={styles.orderItem}>
-                <View style={styles.orderItemInfo}>
-                  <Text style={styles.orderItemName}>{item.name}</Text>
-                  <Text style={styles.orderItemDetails}>
-                    {formatPrice(item.price)} x {item.quantity}
-                  </Text>
-                </View>
-                <Text style={styles.orderItemTotal}>{formatPrice(item.subtotal)}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Totals */}
-          <View style={styles.totalsContainer}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tạm tính</Text>
-              <Text style={styles.totalValue}>{formatPrice(orderSummary.subtotal)}</Text>
+          
+          {tableInfo && (
+            <View style={styles.tableInfo}>
+              <Icon name="map-pin" size={16} color="#666" />
+              <Text style={styles.tableText}>
+                Bàn {tableInfo.name} - {tableInfo.area?.name || 'Tầng 1'}
+              </Text>
             </View>
-            
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Phí dịch vụ (5%)</Text>
-              <Text style={styles.totalValue}>{formatPrice(orderSummary.serviceCharge)}</Text>
-            </View>
-            
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Thuế (10%)</Text>
-              <Text style={styles.totalValue}>{formatPrice(orderSummary.tax)}</Text>
-            </View>
-            
-            <View style={styles.totalDivider} />
-            
-            <View style={styles.totalRow}>
-              <Text style={styles.totalFinal}>Tổng cộng</Text>
-              <Text style={styles.totalFinalAmount}>{formatPrice(orderSummary.total)}</Text>
-            </View>
-          </View>
+          )}
         </View>
 
+        {/* Wallet & Loyalty Display */}
+        {wallet && loyaltyProgram && (
+          <View style={styles.accountContainer}>
+            <Text style={styles.accountTitle}>Thông tin tài khoản</Text>
+            
+            {/* Wallet */}
+            <View style={styles.walletCard}>
+              <View style={styles.walletHeader}>
+                <Icon name="wallet" size={20} color="#E8622A" />
+                <Text style={styles.walletTitle}>Ví FoodStack</Text>
+              </View>
+              <Text style={styles.walletBalance}>{formatPrice(wallet.balance)}</Text>
+              <Text style={styles.walletStatus}>
+                {wallet.balance >= orderAmount ? '✅ Đủ số dư' : '❌ Không đủ số dư'}
+              </Text>
+            </View>
+
+            {/* Loyalty */}
+            <View style={styles.loyaltyCard}>
+              <View style={styles.loyaltyHeader}>
+                <Icon name={loyaltyProgram.current_tier.icon} size={20} color={loyaltyProgram.current_tier.color} />
+                <Text style={styles.loyaltyTitle}>Hạng {loyaltyProgram.current_tier.name}</Text>
+              </View>
+              
+              <Text style={styles.loyaltyPoints}>
+                {loyaltyProgram.current_points.toLocaleString()} điểm
+              </Text>
+              
+              <Text style={styles.loyaltyEarn}>
+                +{LoyaltyService.calculatePointsFromAmount(orderAmount)} điểm sau thanh toán
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Payment Methods */}
-        <View style={styles.paymentContainer}>
-          <Text style={styles.paymentTitle}>Chọn phương thức thanh toán</Text>
+        <View style={styles.methodsContainer}>
+          <Text style={styles.methodsTitle}>Chọn phương thức thanh toán</Text>
           
-          {PAYMENT_METHODS.map((method) => (
+          {paymentMethods.map((method) => (
             <TouchableOpacity
               key={method.id}
               style={[
-                styles.paymentMethod,
-                !method.available && styles.paymentMethodDisabled,
+                styles.methodCard,
+                selectedMethod === method.id && styles.methodCardSelected
               ]}
-              onPress={() => method.available && handlePayment(method)}
-              disabled={!method.available || paymentLoading}
+              onPress={() => setSelectedMethod(method.id)}
+              disabled={!method.enabled}
             >
-              <View style={styles.paymentMethodContent}>
-                <View style={[styles.paymentIcon, { backgroundColor: method.color }]}>
-                  {paymentLoading && selectedMethod === method.id ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Icon name={method.icon} size={20} color="#fff" />
-                  )}
+              <View style={styles.methodContent}>
+                <View style={styles.methodLeft}>
+                  <View style={[
+                    styles.methodIcon,
+                    selectedMethod === method.id && styles.methodIconSelected
+                  ]}>
+                    <Icon name={method.icon} size={20} color={
+                      selectedMethod === method.id ? '#fff' : '#666'
+                    } />
+                  </View>
+                  <Text style={[
+                    styles.methodName,
+                    selectedMethod === method.id && styles.methodNameSelected
+                  ]}>
+                    {method.name}
+                  </Text>
                 </View>
                 
-                <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentName}>{method.name}</Text>
-                  <Text style={styles.paymentDescription}>{method.description}</Text>
+                <View style={[
+                  styles.methodRadio,
+                  selectedMethod === method.id && styles.methodRadioSelected
+                ]}>
+                  {selectedMethod === method.id && (
+                    <View style={styles.methodRadioInner} />
+                  )}
                 </View>
-
-                {method.available ? (
-                  <Icon name="chevron-right" size={20} color="#ccc" />
-                ) : (
-                  <Text style={styles.unavailableText}>Không khả dụng</Text>
-                )}
               </View>
+              
+              {method.id === 'WALLET' && wallet && (
+                <Text style={styles.methodBalance}>
+                  Số dư: {formatPrice(wallet.balance)}
+                </Text>
+              )}
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Security Info */}
-        <View style={styles.securityContainer}>
-          <View style={styles.securityHeader}>
-            <Icon name="shield" size={16} color="#27AE60" />
-            <Text style={styles.securityTitle}>Thanh toán an toàn</Text>
-          </View>
-          <Text style={styles.securityText}>
-            Thông tin thanh toán của bạn được mã hóa và bảo mật tuyệt đối. 
-            Chúng tôi không lưu trữ thông tin thẻ của bạn.
-          </Text>
+        {/* Pay Button */}
+        <View style={styles.payContainer}>
+          <TouchableOpacity
+            style={[
+              styles.payButton,
+              (!selectedMethod || loading) && styles.payButtonDisabled
+            ]}
+            onPress={processPayment}
+            disabled={!selectedMethod || loading}
+          >
+            <LinearGradient
+              colors={
+                selectedMethod && !loading 
+                  ? ['#E8622A', '#FF7A30'] 
+                  : ['#ccc', '#999']
+              }
+              style={styles.payButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="credit-card" size={20} color="#fff" />
+                  <Text style={styles.payButtonText}>
+                    Thanh toán {formatPrice(orderAmount)}
+                  </Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
+
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -406,244 +600,458 @@ const styles = StyleSheet.create({
     width: 40,
   },
 
-  // Content
   content: {
     flex: 1,
+    padding: 16,
   },
 
   // Order Summary
   summaryContainer: {
     backgroundColor: '#fff',
-    padding: 16,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
     marginBottom: 16,
+    ...theme.shadows.sm,
   },
 
   summaryTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+
+  summaryAmount: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#E8622A',
     marginBottom: 12,
   },
 
   tableInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    gap: 6,
   },
 
-  tableInfoText: {
+  tableText: {
     fontSize: 14,
     color: '#666',
   },
 
-  itemsList: {
-    marginBottom: 16,
-  },
-
-  orderItem: {
+  // Warning
+  warningContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFE082',
   },
 
-  orderItemInfo: {
+  warningText: {
+    fontSize: 12,
+    color: '#F57F17',
     flex: 1,
   },
 
-  orderItemName: {
+  // Account Info
+  accountContainer: {
+    marginBottom: 16,
+  },
+
+  accountTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 12,
+  },
+
+  walletCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    ...theme.shadows.sm,
+  },
+
+  walletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+
+  walletTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 2,
   },
 
-  orderItemDetails: {
+  walletBalance: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#E8622A',
+    marginBottom: 4,
+  },
+
+  walletStatus: {
     fontSize: 12,
     color: '#666',
   },
 
-  orderItemTotal: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E8622A',
+  loyaltyCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    ...theme.shadows.sm,
   },
 
-  totalsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-  },
-
-  totalRow: {
+  loyaltyHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
 
-  totalLabel: {
+  loyaltyTitle: {
     fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
+    color: '#333',
   },
 
-  totalValue: {
-    fontSize: 14,
-    color: '#333',
+  loyaltyPoints: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#9B59B6',
+    marginBottom: 4,
+  },
+
+  loyaltyEarn: {
+    fontSize: 12,
+    color: '#27AE60',
     fontWeight: '600',
   },
 
-  totalDivider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginVertical: 8,
-  },
-
-  totalFinal: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
-  },
-
-  totalFinalAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#E8622A',
+  loyaltyNext: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
 
   // Payment Methods
-  paymentContainer: {
-    backgroundColor: '#fff',
+  methodsContainer: {
     marginBottom: 16,
   },
 
-  paymentTitle: {
+  methodsTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#333',
+    marginBottom: 12,
+  },
+
+  methodCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    paddingBottom: 8,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    ...theme.shadows.sm,
   },
 
-  paymentMethod: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  methodCardSelected: {
+    borderColor: '#E8622A',
+    backgroundColor: '#FFF8F5',
   },
 
-  paymentMethodDisabled: {
-    opacity: 0.5,
-  },
-
-  paymentMethodContent: {
+  methodContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+  },
+
+  methodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
 
-  paymentIcon: {
+  methodIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  paymentInfo: {
-    flex: 1,
+  methodIconSelected: {
+    backgroundColor: '#E8622A',
   },
 
-  paymentName: {
+  methodName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  methodNameSelected: {
+    color: '#E8622A',
+  },
+
+  methodRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  methodRadioSelected: {
+    borderColor: '#E8622A',
+  },
+
+  methodRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E8622A',
+  },
+
+  methodBalance: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    marginLeft: 52,
+  },
+
+  // Pay Button
+  payContainer: {
+    marginBottom: 16,
+  },
+
+  payButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+
+  payButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  payButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+
+  payButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Payment Result
+  statusContainer: {
+    marginBottom: 20,
+  },
+
+  statusGradient: {
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+
+  statusTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+
+  statusSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+
+  // QR Code
+  qrContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    ...theme.shadows.sm,
+  },
+
+  qrTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 16,
+  },
+
+  qrWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+
+  qrImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+  },
+
+  qrOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+
+  qrCorner: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderWidth: 3,
+    borderColor: '#27AE60',
+  },
+
+  qrCornerTopLeft: {
+    top: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+
+  qrCornerTopRight: {
+    top: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+
+  qrCornerBottomLeft: {
+    bottom: -3,
+    left: -3,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+
+  qrCornerBottomRight: {
+    bottom: -3,
+    right: -3,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
+
+  qrInfo: {
+    alignItems: 'center',
+  },
+
+  qrPaymentId: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#27AE60',
+    marginBottom: 4,
+  },
+
+  qrAmount: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 2,
   },
 
-  paymentDescription: {
-    fontSize: 14,
+  qrMethod: {
+    fontSize: 12,
     color: '#666',
   },
 
-  unavailableText: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-
-  // Security
-  securityContainer: {
+  // Details
+  detailsContainer: {
     backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 32,
+    marginBottom: 16,
+    ...theme.shadows.sm,
   },
 
-  securityHeader: {
+  detailsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 12,
+  },
+
+  detailRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
     marginBottom: 8,
   },
 
-  securityTitle: {
+  detailLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  detailValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#27AE60',
+    color: '#333',
   },
 
-  securityText: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
-  },
-
-  // Loading & Error
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666',
-  },
-
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-
-  errorIcon: {
-    fontSize: 64,
+  // Rewards
+  rewardsContainer: {
     marginBottom: 16,
   },
 
-  errorTitle: {
-    fontSize: 20,
+  rewardsTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 24,
+    marginBottom: 12,
   },
 
-  retryButton: {
-    backgroundColor: '#E8622A',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  // Complete Button
+  actionContainer: {
+    marginBottom: 16,
   },
 
-  retryButtonText: {
+  completeButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...theme.shadows.md,
+  },
+
+  completeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+
+  completeButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
 

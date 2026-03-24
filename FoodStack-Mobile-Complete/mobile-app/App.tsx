@@ -2,6 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CartProvider } from './src/contexts/CartContext';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { NotificationProvider } from './src/contexts/NotificationContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 // Create a client
@@ -19,9 +20,11 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CartProvider>
-          <AppNavigator />
-        </CartProvider>
+        <NotificationProvider>
+          <CartProvider>
+            <AppNavigator />
+          </CartProvider>
+        </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -48,7 +48,7 @@ const auth = async (req, res, next) => {
     req.user = {
       id: 'test-user-id',
       email: 'test@example.com',
-      role: 'OWNER',
+      role: 'ADMIN', // Changed to ADMIN for admin routes
       restaurant_id: 'test-restaurant-id'
     };
     
@@ -58,4 +58,30 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = { createAuthMiddleware, auth };
+// Alias for consistency
+const authenticateToken = auth;
+
+// Role-based access control middleware
+const requireRole = (allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Authentication required' 
+      });
+    }
+
+    const userRole = req.user.role;
+    
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Insufficient permissions' 
+      });
+    }
+
+    next();
+  };
+};
+
+module.exports = { createAuthMiddleware, auth, authenticateToken, requireRole };

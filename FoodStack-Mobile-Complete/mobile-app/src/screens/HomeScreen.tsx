@@ -46,12 +46,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           navigation.replace('RestaurantDashboard');
           return;
         case 'MANAGER':
-          console.log('👨‍💼 Redirecting to Restaurant Dashboard (Manager)');
-          navigation.replace('RestaurantDashboard');
+          console.log('👨‍💼 Redirecting to Manager Dashboard');
+          navigation.replace('ManagerDashboard');
           return;
         case 'STAFF':
-          console.log('👨‍🍳 Redirecting to Kitchen Display (Staff)');
-          navigation.replace('KitchenDisplay');
+          console.log('👨‍🍳 Redirecting to Staff Dashboard');
+          navigation.replace('StaffDashboard');
           return;
         case 'CUSTOMER':
         default:
@@ -126,10 +126,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={styles.notificationButton}
-              onPress={() => {}}
+              onPress={() => navigation.navigate('Notification')}
               activeOpacity={0.8}
             >
               <Icon name="bell" size={18} color="#333" />
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>3</Text>
+              </View>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -239,20 +242,204 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.quickActionTitle}>Special Offers</Text>
             </TouchableOpacity>
             
-            {__DEV__ && (
-              <TouchableOpacity
-                style={styles.quickActionCard}
-                onPress={() => navigation.navigate('APITest')}
-                activeOpacity={0.8}
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('Notification')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#FFB74D', '#FF9800']}
+                style={styles.quickActionIcon}
               >
-                <LinearGradient
-                  colors={['#FF9800', '#F57C00']}
-                  style={styles.quickActionIcon}
+                <Icon name="bell" size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Notifications</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('Loyalty')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#81C784', '#4CAF50']}
+                style={styles.quickActionIcon}
+              >
+                <Icon name="star" size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Loyalty Points</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('PromoCode')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#F06292', '#E91E63']}
+                style={styles.quickActionIcon}
+              >
+                <Icon name="percent" size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>Promo Codes</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={() => navigation.navigate('Wallet')}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#9575CD', '#673AB7']}
+                style={styles.quickActionIcon}
+              >
+                <Icon name="credit-card" size={22} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.quickActionTitle}>My Wallet</Text>
+            </TouchableOpacity>
+            
+            {__DEV__ && (
+              <>
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('QRGallery')}
+                  activeOpacity={0.8}
                 >
-                  <Icon name="settings" size={22} color="#fff" />
-                </LinearGradient>
-                <Text style={styles.quickActionTitle}>API Test</Text>
-              </TouchableOpacity>
+                  <LinearGradient
+                    colors={['#8E44AD', '#9B59B6']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="grid" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>QR Gallery</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('QRTest')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#9C27B0', '#7B1FA2']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="qr" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>QR Test</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('APITest')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#FF9800', '#F57C00']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="settings" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>API Test</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('SimpleMenu')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#388E3C']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="menu" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Simple Menu</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('Wallet')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#E8622A', '#FF7A30']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="wallet" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Ví FoodStack</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('Loyalty')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#9B59B6', '#8E44AD']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="award" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Tích điểm</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('TestMenu')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#2196F3', '#1976D2']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="code" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Test Menu</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('TestData')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#FF5722', '#E64A19']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="database" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Test Data</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('StaffWorkflowDebug')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#8E44AD', '#9B59B6']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="tool" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Staff Debug</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => navigation.navigate('MenuManagementTest')}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#45A049']}
+                    style={styles.quickActionIcon}
+                  >
+                    <Icon name="menu" size={22} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.quickActionTitle}>Menu Test</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
@@ -427,6 +614,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.sm,
+    position: 'relative',
+  },
+
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF6B35',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+
+  notificationBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
 
   logoutButton: {

@@ -1,31 +1,15 @@
 /**
  * Token Service
- * Manages refresh tokens in Redis
+ * Manages refresh tokens using mock Redis
  */
 
-const Redis = require('ioredis');
+const jwt = require('jsonwebtoken');
+const { redis } = require('../config/database.config'); // Use mock Redis
 
 class TokenService {
   constructor() {
-    this.redis = new Redis({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: process.env.REDIS_PORT || 6379,
-      password: process.env.REDIS_PASSWORD || undefined,
-      db: process.env.REDIS_DB || 0,
-      maxRetriesPerRequest: 3,
-      retryStrategy: (times) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-    });
-
-    this.redis.on('error', (err) => {
-      console.error('Redis connection error:', err);
-    });
-
-    this.redis.on('connect', () => {
-      console.log('✅ Redis connected for TokenService');
-    });
+    this.redis = redis; // Use mock Redis from config
+    console.log('✅ TokenService initialized with mock Redis');
   }
 
   /**
@@ -145,6 +129,57 @@ class TokenService {
    */
   async close() {
     await this.redis.quit();
+  }
+
+  // =====================================================
+  // JWT Token Generation and Validation
+  // =====================================================
+
+  /**
+   * Generate access token
+   * @param {Object} payload - Token payload
+   * @param {string} expiresIn - Expiration time (e.g., '15m')
+   * @returns {string} JWT token
+   */
+  generateAccessToken(payload, expiresIn = '15m') {
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+  }
+
+  /**
+   * Generate refresh token
+   * @param {Object} payload - Token payload
+   * @param {string} expiresIn - Expiration time (e.g., '30d')
+   * @returns {string} JWT token
+   */
+  generateRefreshToken(payload, expiresIn = '30d') {
+    return jwt.sign(payload, process.env.JWT_REFRESH_TOKEN_SECRET, { expiresIn });
+  }
+
+  /**
+   * Verify access token
+   * @param {string} token - JWT token
+   * @returns {Object} Decoded payload
+   */
+  verifyAccessToken(token) {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  }
+
+  /**
+   * Verify refresh token
+   * @param {string} token - JWT token
+   * @returns {Object} Decoded payload
+   */
+  verifyRefreshToken(token) {
+    return jwt.verify(token, process.env.JWT_REFRESH_TOKEN_SECRET);
+  }
+
+  /**
+   * Decode token without verification (for getting payload)
+   * @param {string} token - JWT token
+   * @returns {Object} Decoded payload
+   */
+  decodeToken(token) {
+    return jwt.decode(token);
   }
 }
 
